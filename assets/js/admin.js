@@ -79,8 +79,9 @@
     panel.hidden = false;
     document.body.style.overflow = 'hidden';
     fillSettingsForm();
-    fillPublishForm();
-    refreshPublishBadge();
+    /* لا نخلي عطل في جزء النشر يمنع عرض بقية اللوحة */
+    try { fillPublishForm(); refreshPublishBadge(); }
+    catch (e) { setStatus('تعذّر تحميل جزء النشر المباشر.', 'err'); }
     renderItems();
     renderCats();
     document.getElementById('jsonBox').value = Store.toJSON();

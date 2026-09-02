@@ -141,6 +141,7 @@
         اربط اللوحة بمستودع الموقع مرة وحدة، وبعدها أي تعديل تنشره بضغطة زر.
         الصور تنرفع كملفات داخل مجلد <code>images/</code> تلقائياً.
       </p>
+      <div id="publishSetup">
       <label class="field"><span>اسم الحساب في GitHub</span><input class="input ltr" id="ghOwner" autocomplete="off"></label>
       <label class="field"><span>اسم المستودع</span><input class="input ltr" id="ghRepo" autocomplete="off"></label>
       <label class="field"><span>الفرع</span><input class="input ltr" id="ghBranch" placeholder="main" autocomplete="off"></label>
@@ -158,11 +159,13 @@
         <button class="btn primary" id="ghPublishBtn" type="button">نشر للزبائن الآن</button>
       </div>
       <p id="ghStatus" class="pub-status" hidden></p>
+      </div>
 
       <h3>نسخة احتياطية يدوية</h3>
       <p class="muted">
-        التعديلات محفوظة داخل هذا الجهاز فقط. لنشر المنيو لكل الزبائن:
-        نزّل ملف <code>menu.json</code> ثم استبدل به الملف الموجود في المجلد <code>data/</code> داخل المستودع.
+        لو ما تبي تستخدم زر النشر، نزّل ملف <code>menu.json</code> واستبدل به
+        الملف الموجود في المجلد <code>data/</code> داخل المستودع. مفيد أيضاً
+        كنسخة احتياطية تحفظها عندك.
       </p>
       <div class="btn-row">
         <button class="btn primary" id="exportBtn" type="button">تنزيل ملف المنيو (menu.json)</button>
