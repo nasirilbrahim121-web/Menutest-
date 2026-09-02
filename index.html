@@ -61,12 +61,13 @@
 
 <!-- ============ دخول الأدمن (مخفي) ============ -->
 <div id="loginModal" class="overlay" hidden>
-  <form class="sheet narrow" id="loginForm" autocomplete="off">
+  <form class="sheet narrow" id="loginForm" autocomplete="on">
     <button class="sheet-close" type="button" data-close aria-label="إغلاق">&times;</button>
     <h2>دخول الإدارة</h2>
-    <p class="muted" id="loginHint">أدخل كلمة المرور للمتابعة</p>
-    <input id="loginPass" type="password" placeholder="كلمة المرور" autocomplete="current-password" required>
-    <p id="loginError" class="error" hidden>كلمة المرور غير صحيحة</p>
+    <p class="muted" id="loginHint">سجّل دخولك بالإيميل وكلمة المرور</p>
+    <input id="loginEmail" type="email" placeholder="الإيميل" autocomplete="username" required class="ltr">
+    <input id="loginPass" type="password" placeholder="كلمة المرور" autocomplete="current-password" required class="ltr">
+    <p id="loginError" class="error" hidden></p>
     <button class="btn primary" type="submit">دخول</button>
   </form>
 </div>
@@ -76,7 +77,6 @@
   <header class="admin-top">
     <h2>لوحة التحكم</h2>
     <div class="admin-top-actions">
-      <button class="btn publish" id="topPublishBtn" type="button">نشر للزبائن</button>
       <button class="btn ghost" id="previewBtn" type="button">معاينة المنيو</button>
       <button class="btn ghost danger" id="logoutBtn" type="button">خروج</button>
     </div>
@@ -86,7 +86,7 @@
     <button class="atab is-active" data-view="items" type="button">الأصناف</button>
     <button class="atab" data-view="cats" type="button">الأقسام</button>
     <button class="atab" data-view="info" type="button">معلومات المحل</button>
-    <button class="atab" data-view="backup" type="button">النشر والنسخ الاحتياطي</button>
+    <button class="atab" data-view="backup" type="button">الحالة والنسخ الاحتياطي</button>
   </nav>
 
   <div class="admin-body">
@@ -127,52 +127,35 @@
       <label class="field"><span>أوقات العمل</span><input class="input" id="setHours"></label>
       <label class="field"><span>ملاحظات داخلية (لا تظهر للزبون)</span><textarea class="input" id="setNotes" rows="3"></textarea></label>
 
-      <h3>كلمة مرور الإدارة</h3>
-      <label class="field"><span>كلمة مرور جديدة</span><input class="input" id="setPass1" type="password" autocomplete="new-password"></label>
-      <label class="field"><span>تأكيد كلمة المرور</span><input class="input" id="setPass2" type="password" autocomplete="new-password"></label>
-      <p class="muted small">اتركها فارغة إذا ما تبي تغيرها.</p>
+      <h3>كلمة مرور الدخول</h3>
+      <label class="field"><span>كلمة مرور جديدة</span><input class="input ltr" id="setPass1" type="password" autocomplete="new-password"></label>
+      <label class="field"><span>تأكيد كلمة المرور</span><input class="input ltr" id="setPass2" type="password" autocomplete="new-password"></label>
+      <p class="muted small">اتركها فارغة إذا ما تبي تغيّرها. الحد الأدنى ٨ أحرف.</p>
 
       <button class="btn primary" id="saveInfoBtn" type="button">حفظ التغييرات</button>
     </section>
 
     <section class="aview" data-view="backup" hidden>
-      <h3>النشر المباشر للزبائن</h3>
+      <h3>حالة الاتصال</h3>
+      <p id="cloudStatus" class="pub-status" hidden></p>
       <p class="muted small">
-        اربط اللوحة بمستودع الموقع مرة وحدة، وبعدها أي تعديل تنشره بضغطة زر.
-        الصور تنرفع كملفات داخل مجلد <code>images/</code> تلقائياً.
-      </p>
-      <div id="publishSetup">
-      <label class="field"><span>اسم الحساب في GitHub</span><input class="input ltr" id="ghOwner" autocomplete="off"></label>
-      <label class="field"><span>اسم المستودع</span><input class="input ltr" id="ghRepo" autocomplete="off"></label>
-      <label class="field"><span>الفرع</span><input class="input ltr" id="ghBranch" placeholder="main" autocomplete="off"></label>
-      <label class="field"><span>التوكن (Personal access token)</span>
-        <input class="input ltr" id="ghToken" type="password" autocomplete="off" placeholder="github_pat_..."></label>
-      <p class="muted small">
-        التوكن ينحفظ في هذا الجهاز فقط، وما يدخل أبداً في ملف المنيو المنشور.
-        أنشئه من GitHub ← Settings ← Developer settings ← Personal access tokens ←
-        Fine-grained tokens، وحدّد <b>هذا المستودع فقط</b>، والصلاحية
-        <b>Contents: Read and write</b>.
+        كل تعديل تحفظه ينحفظ مباشرة في قاعدة البيانات ويشوفه الزبائن فوراً،
+        بدون أي خطوة نشر.
       </p>
       <div class="btn-row">
-        <button class="btn ghost" id="ghSaveCfg" type="button">حفظ بيانات الربط</button>
-        <button class="btn ghost" id="ghTestBtn" type="button">اختبار الاتصال</button>
-        <button class="btn primary" id="ghPublishBtn" type="button">نشر للزبائن الآن</button>
-      </div>
-      <p id="ghStatus" class="pub-status" hidden></p>
+        <button class="btn ghost" id="reloadBtn" type="button">تحديث من قاعدة البيانات</button>
       </div>
 
-      <h3>نسخة احتياطية يدوية</h3>
+      <h3>نسخة احتياطية</h3>
       <p class="muted">
-        لو ما تبي تستخدم زر النشر، نزّل ملف <code>menu.json</code> واستبدل به
-        الملف الموجود في المجلد <code>data/</code> داخل المستودع. مفيد أيضاً
-        كنسخة احتياطية تحفظها عندك.
+        نزّل نسخة من المنيو واحفظها عندك، تقدر ترجّعها في أي وقت.
       </p>
       <div class="btn-row">
-        <button class="btn primary" id="exportBtn" type="button">تنزيل ملف المنيو (menu.json)</button>
-        <label class="btn ghost file-btn">استيراد ملف منيو<input id="importFile" type="file" accept="application/json" hidden></label>
-        <button class="btn ghost danger" id="resetBtn" type="button">استرجاع المنيو الأصلي</button>
+        <button class="btn primary" id="exportBtn" type="button">تنزيل نسخة (menu.json)</button>
+        <label class="btn ghost file-btn">استرجاع من ملف<input id="importFile" type="file" accept="application/json" hidden></label>
       </div>
-      <h3>نسخ سريع</h3>
+
+      <h3>محتوى المنيو</h3>
       <textarea id="jsonBox" class="input mono" rows="12" readonly></textarea>
       <button class="btn ghost" id="copyJsonBtn" type="button">نسخ المحتوى</button>
     </section>
@@ -195,8 +178,10 @@
 
 <div id="toast" class="toast" hidden></div>
 
+<script src="assets/js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.114.0/dist/umd/supabase.js"></script>
+<script src="assets/js/cloud.js"></script>
 <script src="assets/js/store.js"></script>
-<script src="assets/js/publish.js"></script>
 <script src="assets/js/app.js"></script>
 <script src="assets/js/admin.js"></script>
 </body>

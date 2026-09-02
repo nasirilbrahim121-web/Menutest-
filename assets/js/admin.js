@@ -1,6 +1,7 @@
 /* ============================================================
    admin.js — لوحة التحكم المخفية
-   الدخول: ٥ ضغطات على اسم المحل، أو إضافة #admin للرابط
+   الدخول: ٥ ضغطات على اسم المحل أو الرابط #admin، ثم إيميل وكلمة مرور.
+   كل تعديل يُحفظ مباشرة في قاعدة البيانات ويظهر للزبائن فوراً.
    ============================================================ */
 (function (global) {
   'use strict';
@@ -8,12 +9,14 @@
   var panel      = document.getElementById('adminPanel');
   var loginModal = document.getElementById('loginModal');
   var loginForm  = document.getElementById('loginForm');
+  var loginEmail = document.getElementById('loginEmail');
   var loginPass  = document.getElementById('loginPass');
   var loginError = document.getElementById('loginError');
   var editModal  = document.getElementById('editModal');
   var editForm   = document.getElementById('editForm');
   var editFields = document.getElementById('editFields');
   var editTitle  = document.getElementById('editTitle');
+  var cloudBox   = document.getElementById('cloudStatus');
 
   var editing = null;   /* {type:'item'|'cat', id:string|null} */
 
@@ -23,31 +26,37 @@
     });
   }
 
-  function persist() {
-    if (!Store.save()) {
-      toast('تعذّر الحفظ — مساحة المتصفح ممتلئة. انشر تعديلاتك أولاً، أو استخدم صوراً أصغر.');
+  /* يحفظ التعديل ويحدّث المنيو. يرجّع true إذا نجح الحفظ فعلاً. */
+  async function persist() {
+    try {
+      await Store.save();
+      global.renderMenu();
+      showCloudStatus();
+      return true;
+    } catch (e) {
+      toast(e.message);
+      showCloudStatus(e.message);
       return false;
     }
-    global.renderMenu();
-    refreshPublishBadge();
-    return true;
   }
 
-  /* ------------------ ضغط الصور قبل الحفظ ------------------ */
-  function fileToImage(file, maxSize) {
+  /* ------------------ تصغير الصور قبل الرفع ------------------ */
+  function fileToBlob(file, maxSize) {
     return new Promise(function (resolve, reject) {
       var reader = new FileReader();
-      reader.onerror = function () { reject(new Error('read')); };
+      reader.onerror = function () { reject(new Error('تعذّرت قراءة الصورة')); };
       reader.onload = function () {
         var img = new Image();
-        img.onerror = function () { reject(new Error('decode')); };
+        img.onerror = function () { reject(new Error('صيغة الصورة غير مدعومة')); };
         img.onload = function () {
           var scale = Math.min(1, maxSize / Math.max(img.width, img.height));
           var w = Math.round(img.width * scale), h = Math.round(img.height * scale);
           var cv = document.createElement('canvas');
           cv.width = w; cv.height = h;
           cv.getContext('2d').drawImage(img, 0, 0, w, h);
-          resolve(cv.toDataURL('image/jpeg', 0.82));
+          cv.toBlob(function (blob) {
+            blob ? resolve(blob) : reject(new Error('تعذّر تجهيز الصورة'));
+          }, 'image/jpeg', 0.82);
         };
         img.src = reader.result;
       };
@@ -58,30 +67,45 @@
   /* ============================================================
      الدخول والخروج
      ============================================================ */
-  function requestAccess() {
-    if (Store.isLoggedIn()) return open();
+  async function requestAccess() {
+    if (!Cloud.isConfigured()) {
+      alert('الموقع غير مربوط بقاعدة البيانات بعد. عبّي القيمتين في ملف assets/js/config.js.');
+      return;
+    }
+    var user = await Cloud.currentUser();
+    if (user) return open();
     loginError.hidden = true;
     loginPass.value = '';
     loginModal.hidden = false;
-    setTimeout(function () { loginPass.focus(); }, 50);
+    setTimeout(function () { (loginEmail.value ? loginPass : loginEmail).focus(); }, 50);
   }
 
   loginForm.addEventListener('submit', async function (e) {
     e.preventDefault();
-    var ok = await Store.checkPassword(loginPass.value);
-    if (!ok) { loginError.hidden = false; loginPass.select(); return; }
-    Store.setLoggedIn(true);
-    loginModal.hidden = true;
-    open();
+    var btn = loginForm.querySelector('button[type=submit]');
+    btn.disabled = true;
+    loginError.hidden = true;
+    try {
+      await Cloud.signIn(loginEmail.value.trim(), loginPass.value);
+      loginModal.hidden = true;
+      loginPass.value = '';
+      /* بعد الدخول نعيد التحميل من قاعدة البيانات حتى نشتغل على أحدث نسخة */
+      await Store.init();
+      global.renderMenu();
+      open();
+    } catch (err) {
+      loginError.textContent = err.message;
+      loginError.hidden = false;
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   function open() {
     panel.hidden = false;
     document.body.style.overflow = 'hidden';
     fillSettingsForm();
-    /* لا نخلي عطل في جزء النشر يمنع عرض بقية اللوحة */
-    try { fillPublishForm(); refreshPublishBadge(); }
-    catch (e) { setStatus('تعذّر تحميل جزء النشر المباشر.', 'err'); }
+    showCloudStatus();
     renderItems();
     renderCats();
     document.getElementById('jsonBox').value = Store.toJSON();
@@ -90,6 +114,23 @@
   function close() {
     panel.hidden = true;
     document.body.style.overflow = '';
+  }
+
+  /* حالة الاتصال أعلى تبويب النسخ الاحتياطي */
+  function showCloudStatus(errorMsg) {
+    if (!cloudBox) return;
+    var map = {
+      cloud: ['متصل بقاعدة البيانات — أي تعديل يظهر للزبائن فوراً.', 'ok'],
+      'cloud-empty': ['قاعدة البيانات فاضية — أول حفظ راح ينقل المنيو الحالي لها.', ''],
+      offline: ['ما وصلنا لقاعدة البيانات، وتعرض نسخة محفوظة. لا تعدّل قبل ما يرجع الاتصال.', 'err'],
+      local: ['الموقع غير مربوط بقاعدة البيانات — التعديلات محفوظة في هذا الجهاز فقط.', 'err'],
+      file: ['يعرض المنيو من ملف الموقع.', '']
+    };
+    var row = map[Store.source] || map.file;
+    var msg = errorMsg || (Store.cloudError ? row[0] + ' (' + Store.cloudError + ')' : row[0]);
+    cloudBox.textContent = msg;
+    cloudBox.className = 'pub-status' + (errorMsg ? ' is-err' : (row[1] ? ' is-' + row[1] : ''));
+    cloudBox.hidden = false;
   }
 
   /* ============================================================
@@ -108,91 +149,8 @@
 
   document.getElementById('previewBtn').addEventListener('click', close);
 
-  /* ============================================================
-     النشر المباشر إلى المستودع
-     ============================================================ */
-  var ghStatus = document.getElementById('ghStatus');
-
-  function setStatus(msg, kind) {
-    ghStatus.textContent = msg;
-    ghStatus.className = 'pub-status' + (kind ? ' is-' + kind : '');
-    ghStatus.hidden = !msg;
-  }
-
-  function fillPublishForm() {
-    var c = Publish.loadConfig();
-    document.getElementById('ghOwner').value  = c.owner;
-    document.getElementById('ghRepo').value   = c.repo;
-    document.getElementById('ghBranch').value = c.branch;
-    document.getElementById('ghToken').value  = c.token;
-  }
-
-  function readPublishForm() {
-    return {
-      owner:  document.getElementById('ghOwner').value.trim(),
-      repo:   document.getElementById('ghRepo').value.trim(),
-      branch: document.getElementById('ghBranch').value.trim() || 'main',
-      token:  document.getElementById('ghToken').value.trim()
-    };
-  }
-
-  /* نقطة حمراء على زر النشر إذا فيه تعديلات ما انتشرت */
-  function refreshPublishBadge() {
-    var btn = document.getElementById('topPublishBtn');
-    var pending = Store.hasUnpublished();
-    btn.classList.toggle('has-changes', pending);
-    btn.textContent = pending ? 'نشر للزبائن ●' : 'نشر للزبائن';
-  }
-
-  document.getElementById('ghSaveCfg').addEventListener('click', function () {
-    if (Publish.saveConfig(readPublishForm())) setStatus('تم حفظ بيانات الربط في هذا الجهاز.', 'ok');
-    else setStatus('تعذّر الحفظ في هذا المتصفح.', 'err');
-  });
-
-  document.getElementById('ghTestBtn').addEventListener('click', async function () {
-    Publish.saveConfig(readPublishForm());
-    setStatus('جاري الاختبار…');
-    try { setStatus(await Publish.test(), 'ok'); }
-    catch (e) { setStatus(e.message, 'err'); }
-  });
-
-  async function runPublish(btn) {
-    Publish.saveConfig(readPublishForm());
-    btn.disabled = true;
-    try {
-      var res = await Publish.publish(function (m) { setStatus(m); });
-      setStatus('تم النشر بنجاح' + (res.images ? ' (ورفعنا ' + res.images + ' صورة)' : '') +
-        '. الموقع يتحدّث للزبائن خلال دقيقة تقريباً.', 'ok');
-      renderItems();
-      global.renderMenu();
-      document.getElementById('jsonBox').value = Store.toJSON();
-      toast('تم النشر');
-    } catch (e) {
-      setStatus(e.message, 'err');
-      toast('ما تم النشر');
-    } finally {
-      btn.disabled = false;
-      refreshPublishBadge();
-    }
-  }
-
-  document.getElementById('ghPublishBtn').addEventListener('click', function () {
-    runPublish(this);
-  });
-
-  document.getElementById('topPublishBtn').addEventListener('click', function () {
-    var btn = this;
-    /* ننقل المستخدم لتبويب النشر حتى يشوف الحالة والأخطاء */
-    document.querySelector('.atab[data-view="backup"]').click();
-    if (!Publish.isConfigured()) {
-      setStatus('عبّي بيانات الربط أول مرة، بعدها النشر بضغطة وحدة.', 'err');
-      document.getElementById('ghToken').focus();
-      return;
-    }
-    runPublish(btn);
-  });
-  document.getElementById('logoutBtn').addEventListener('click', function () {
-    Store.setLoggedIn(false);
+  document.getElementById('logoutBtn').addEventListener('click', async function () {
+    await Cloud.signOut();
     close();
     toast('تم تسجيل الخروج');
   });
@@ -214,9 +172,8 @@
   function renderItems() {
     fillFilter();
     var box = document.getElementById('adminItems');
-    var cats = Store.categories();
     var chosen = filterCat.value;
-    var list = cats.filter(function (c) { return !chosen || c.id === chosen; });
+    var list = Store.categories().filter(function (c) { return !chosen || c.id === chosen; });
 
     if (!Store.data.items.length) {
       box.innerHTML = '<p class="muted">لا توجد أصناف بعد. اضغط «إضافة صنف».</p>';
@@ -250,7 +207,7 @@
 
   filterCat.addEventListener('change', renderItems);
 
-  document.getElementById('adminItems').addEventListener('click', function (e) {
+  document.getElementById('adminItems').addEventListener('click', async function (e) {
     var btn = e.target.closest('[data-act]');
     if (!btn) return;
     var id = btn.closest('.arow').dataset.id;
@@ -262,13 +219,19 @@
 
     if (act === 'toggle') {
       item.available = !item.available;
-      persist(); renderItems(); return;
+      if (!await persist()) item.available = !item.available; /* تراجع لو فشل الحفظ */
+      renderItems();
+      return;
     }
 
     if (act === 'del') {
       if (!confirm('حذف «' + item.name + '» نهائياً؟')) return;
+      var backup = Store.data.items.slice();
       Store.data.items = Store.data.items.filter(function (i) { return i.id !== id; });
-      persist(); renderItems(); toast('تم الحذف'); return;
+      if (await persist()) toast('تم الحذف');
+      else Store.data.items = backup;
+      renderItems();
+      return;
     }
 
     if (act === 'up' || act === 'down') {
@@ -277,7 +240,8 @@
       var swapWith = siblings[act === 'up' ? idx - 1 : idx + 1];
       if (!swapWith) return;
       var tmp = item.order; item.order = swapWith.order; swapWith.order = tmp;
-      persist(); renderItems();
+      if (!await persist()) { swapWith.order = item.order; item.order = tmp; }
+      renderItems();
     }
   });
 
@@ -307,21 +271,26 @@
         '<input class="input" name="oldPrice" type="number" step="0.01" min="0" value="' + esc(it.oldPrice || '') + '"></label>' +
       '<label class="field"><span>السعرات الحرارية</span><input class="input" name="calories" type="number" min="0" value="' + esc(it.calories == null ? '' : it.calories) + '"></label>' +
       '<label class="field"><span>الوصف</span><textarea class="input" name="desc" rows="2">' + esc(it.desc) + '</textarea></label>' +
-      '<label class="field"><span>مسار الصورة أو رابطها</span>' +
-        '<input class="input" name="image" id="imgPath" placeholder="images/mocha.jpg" value="' + esc(it.image) + '"></label>' +
-      '<label class="field"><span>أو ارفع صورة من الجهاز</span>' +
-        '<input class="input" type="file" id="imgFile" accept="image/*"></label>' +
+      '<label class="field"><span>صورة الصنف</span><input class="input" type="file" id="imgFile" accept="image/*"></label>' +
+      '<input type="hidden" name="image" id="imgPath" value="' + esc(it.image) + '">' +
+      '<p id="imgMsg" class="muted small"></p>' +
       '<div id="imgPrev" class="logo-preview">' + (it.image ? '<img src="' + esc(it.image) + '" alt="">' : '') + '</div>' +
       '<label class="check"><input type="checkbox" name="available"' + (it.available !== false ? ' checked' : '') + '> <span>متوفر للطلب</span></label>';
 
     document.getElementById('imgFile').addEventListener('change', async function (e) {
       var f = e.target.files[0];
       if (!f) return;
+      var msg = document.getElementById('imgMsg');
+      msg.textContent = 'جاري رفع الصورة…';
       try {
-        var dataUrl = await fileToImage(f, 800);
-        document.getElementById('imgPath').value = dataUrl;
-        document.getElementById('imgPrev').innerHTML = '<img src="' + dataUrl + '" alt="">';
-      } catch (err) { toast('تعذّرت قراءة الصورة'); }
+        var blob = await fileToBlob(f, 800);
+        var url = await Cloud.uploadImage(blob, 'item');
+        document.getElementById('imgPath').value = url;
+        document.getElementById('imgPrev').innerHTML = '<img src="' + esc(url) + '" alt="">';
+        msg.textContent = 'تم رفع الصورة. اضغط «حفظ» عشان تنحفظ مع الصنف.';
+      } catch (err) {
+        msg.textContent = err.message;
+      }
     });
 
     editModal.hidden = false;
@@ -347,7 +316,7 @@
     }).join('');
   }
 
-  document.getElementById('adminCats').addEventListener('click', function (e) {
+  document.getElementById('adminCats').addEventListener('click', async function (e) {
     var btn = e.target.closest('[data-act]');
     if (!btn) return;
     var id = btn.closest('.arow').dataset.id;
@@ -361,18 +330,23 @@
       var n = Store.itemsOf(id).length;
       var msg = n ? 'سيتم حذف القسم و' + n + ' صنف بداخله. متأكد؟' : 'حذف القسم «' + cat.name + '»؟';
       if (!confirm(msg)) return;
-      Store.data.categories = Store.data.categories.filter(function (c) { return c.id !== id; });
-      Store.data.items = Store.data.items.filter(function (i) { return i.categoryId !== id; });
-      persist(); renderCats(); renderItems(); toast('تم الحذف'); return;
+      var cats = Store.data.categories.slice(), items = Store.data.items.slice();
+      Store.data.categories = cats.filter(function (c) { return c.id !== id; });
+      Store.data.items = items.filter(function (i) { return i.categoryId !== id; });
+      if (await persist()) toast('تم الحذف');
+      else { Store.data.categories = cats; Store.data.items = items; }
+      renderCats(); renderItems();
+      return;
     }
 
     if (act === 'up' || act === 'down') {
-      var cats = Store.categories();
-      var idx = cats.findIndex(function (c) { return c.id === id; });
-      var swapWith = cats[act === 'up' ? idx - 1 : idx + 1];
+      var list = Store.categories();
+      var idx = list.findIndex(function (c) { return c.id === id; });
+      var swapWith = list[act === 'up' ? idx - 1 : idx + 1];
       if (!swapWith) return;
       var tmp = cat.order; cat.order = swapWith.order; swapWith.order = tmp;
-      persist(); renderCats(); renderItems();
+      if (!await persist()) { swapWith.order = cat.order; cat.order = tmp; }
+      renderCats(); renderItems();
     }
   });
 
@@ -388,41 +362,53 @@
   }
 
   /* ---------- حفظ النموذج ---------- */
-  editForm.addEventListener('submit', function (e) {
+  editForm.addEventListener('submit', async function (e) {
     e.preventDefault();
     var f = new FormData(editForm);
+    var btn = editForm.querySelector('button[type=submit]');
+    btn.disabled = true;
 
-    if (editing.type === 'cat') {
-      var name = String(f.get('name') || '').trim();
-      if (!name) return;
-      if (editing.id) {
-        Store.data.categories.find(function (c) { return c.id === editing.id; }).name = name;
+    try {
+      if (editing.type === 'cat') {
+        var name = String(f.get('name') || '').trim();
+        if (!name) return;
+        var snapshot = Store.data.categories.slice();
+        if (editing.id) {
+          Store.data.categories.find(function (c) { return c.id === editing.id; }).name = name;
+        } else {
+          Store.data.categories.push({
+            id: Store.uid('c'), name: name, order: Store.data.categories.length + 1
+          });
+        }
+        if (await persist()) { editModal.hidden = true; toast('تم الحفظ'); }
+        else Store.data.categories = snapshot;
+        renderCats(); renderItems();
       } else {
-        Store.data.categories.push({
-          id: Store.uid('c'), name: name, order: Store.data.categories.length + 1
-        });
+        var isNew = !editing.id;
+        var item = isNew
+          ? { id: Store.uid('i'), order: Store.data.items.length + 1 }
+          : Store.data.items.find(function (i) { return i.id === editing.id; });
+        var before = isNew ? null : JSON.parse(JSON.stringify(item));
+
+        item.name       = String(f.get('name') || '').trim();
+        item.categoryId = f.get('categoryId');
+        item.price      = Number(f.get('price')) || 0;
+        item.oldPrice   = f.get('oldPrice') ? Number(f.get('oldPrice')) : null;
+        item.calories   = f.get('calories') === '' ? null : Number(f.get('calories'));
+        item.desc       = String(f.get('desc') || '').trim();
+        item.image      = String(f.get('image') || '').trim();
+        item.available  = f.get('available') === 'on';
+
+        if (isNew) Store.data.items.push(item);
+
+        if (await persist()) { editModal.hidden = true; toast('تم الحفظ'); }
+        else if (isNew) Store.data.items.pop();
+        else Object.assign(item, before);
+        renderItems();
       }
-      persist(); renderCats(); renderItems();
-    } else {
-      var item = editing.id
-        ? Store.data.items.find(function (i) { return i.id === editing.id; })
-        : { id: Store.uid('i'), order: Store.data.items.length + 1 };
-
-      item.name       = String(f.get('name') || '').trim();
-      item.categoryId = f.get('categoryId');
-      item.price      = Number(f.get('price')) || 0;
-      item.oldPrice   = f.get('oldPrice') ? Number(f.get('oldPrice')) : null;
-      item.calories   = f.get('calories') === '' ? null : Number(f.get('calories'));
-      item.desc       = String(f.get('desc') || '').trim();
-      item.image      = String(f.get('image') || '').trim();
-      item.available  = f.get('available') === 'on';
-
-      if (!editing.id) Store.data.items.push(item);
-      persist(); renderItems();
+    } finally {
+      btn.disabled = false;
     }
-
-    editModal.hidden = true;
-    toast('تم الحفظ');
   });
 
   /* ============================================================
@@ -457,43 +443,57 @@
   document.getElementById('setLogoFile').addEventListener('change', async function (e) {
     var f = e.target.files[0];
     if (!f) return;
+    var prev = Store.data.settings.logo;
     try {
-      var dataUrl = await fileToImage(f, 256);
-      Store.data.settings.logo = dataUrl;
-      document.getElementById('logoPreview').innerHTML = '<img src="' + dataUrl + '" alt="">';
-      persist();
-      toast('تم تحديث الشعار');
-    } catch (err) { toast('تعذّرت قراءة الصورة'); }
+      var blob = await fileToBlob(f, 256);
+      var url = await Cloud.uploadImage(blob, 'logo');
+      Store.data.settings.logo = url;
+      document.getElementById('logoPreview').innerHTML = '<img src="' + esc(url) + '" alt="">';
+      if (await persist()) toast('تم تحديث الشعار');
+      else Store.data.settings.logo = prev;
+    } catch (err) { toast(err.message); }
   });
 
   document.getElementById('saveInfoBtn').addEventListener('click', async function () {
+    var btn = this;
     var s = Store.data.settings;
-    s.shopName = document.getElementById(S.shopName).value.trim();
-    s.tagline  = document.getElementById(S.tagline).value.trim();
-    s.currency = document.getElementById(S.currency).value.trim() || 'ر.س';
-    s.theme.bg     = document.getElementById('setBg').value;
-    s.theme.accent = document.getElementById('setAccent').value;
-    s.showCalories = document.getElementById('setShowCal').checked;
-    s.contact = {
-      phone:     document.getElementById(S.phone).value.trim(),
-      whatsapp:  document.getElementById(S.whatsapp).value.trim(),
-      instagram: document.getElementById(S.instagram).value.trim(),
-      address:   document.getElementById(S.address).value.trim(),
-      hours:     document.getElementById(S.hours).value.trim(),
-      notes:     document.getElementById(S.notes).value.trim()
-    };
+    var before = JSON.parse(JSON.stringify(s));
+    btn.disabled = true;
 
-    var p1 = document.getElementById('setPass1').value;
-    var p2 = document.getElementById('setPass2').value;
-    if (p1 || p2) {
-      if (p1 !== p2) { toast('كلمتا المرور غير متطابقتين'); return; }
-      if (p1.length < 4) { toast('كلمة المرور قصيرة جداً'); return; }
-      await Store.setPassword(p1);
-    }
+    try {
+      s.shopName = document.getElementById(S.shopName).value.trim();
+      s.tagline  = document.getElementById(S.tagline).value.trim();
+      s.currency = document.getElementById(S.currency).value.trim() || 'ر.س';
+      s.theme.bg     = document.getElementById('setBg').value;
+      s.theme.accent = document.getElementById('setAccent').value;
+      s.showCalories = document.getElementById('setShowCal').checked;
+      s.contact = {
+        phone:     document.getElementById(S.phone).value.trim(),
+        whatsapp:  document.getElementById(S.whatsapp).value.trim(),
+        instagram: document.getElementById(S.instagram).value.trim(),
+        address:   document.getElementById(S.address).value.trim(),
+        hours:     document.getElementById(S.hours).value.trim(),
+        notes:     document.getElementById(S.notes).value.trim()
+      };
 
-    if (persist()) {
+      if (!await persist()) { Store.data.settings = before; return; }
+
+      /* كلمة المرور تتغيّر في حساب الدخول نفسه، مو داخل المنيو */
+      var p1 = document.getElementById('setPass1').value;
+      var p2 = document.getElementById('setPass2').value;
+      if (p1 || p2) {
+        if (p1 !== p2) { toast('كلمتا المرور غير متطابقتين'); return; }
+        if (p1.length < 8) { toast('كلمة المرور لازم ٨ أحرف على الأقل'); return; }
+        try {
+          await Cloud.changePassword(p1);
+          toast('تم حفظ المعلومات وتغيير كلمة المرور');
+        } catch (err) { toast(err.message); return; }
+      } else {
+        toast('تم حفظ المعلومات');
+      }
       fillSettingsForm();
-      toast('تم حفظ المعلومات');
+    } finally {
+      btn.disabled = false;
     }
   });
 
@@ -515,24 +515,23 @@
     var f = e.target.files[0];
     if (!f) return;
     var reader = new FileReader();
-    reader.onload = function () {
+    reader.onload = async function () {
       try {
-        Store.import(reader.result);
+        await Store.import(reader.result);
         global.renderMenu();
         open();
         toast('تم استيراد المنيو');
-      } catch (err) { toast('الملف غير صالح'); }
+      } catch (err) { toast(err.message || 'الملف غير صالح'); }
     };
     reader.readAsText(f);
     e.target.value = '';
   });
 
-  document.getElementById('resetBtn').addEventListener('click', async function () {
-    if (!confirm('سيتم حذف كل التعديلات المحفوظة في هذا الجهاز والرجوع للمنيو الأصلي. متأكد؟')) return;
-    await Store.reset();
+  document.getElementById('reloadBtn').addEventListener('click', async function () {
+    await Store.init();
     global.renderMenu();
     open();
-    toast('تم الاسترجاع');
+    toast('تم التحديث من قاعدة البيانات');
   });
 
   document.getElementById('copyJsonBtn').addEventListener('click', async function () {

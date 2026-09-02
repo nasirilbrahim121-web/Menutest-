@@ -1,20 +1,17 @@
 /* ============================================================
-   store.js — تخزين بيانات المنيو
+   store.js — تحميل وحفظ بيانات المنيو
    ترتيب مصادر البيانات:
-   1) تعديلات محفوظة في هذا المتصفح (localStorage)
-   2) ملف data/menu.json المرفوع مع الموقع
-   3) البيانات الافتراضية المدمجة بالأسفل
+   1) قاعدة البيانات (المصدر الرسمي متى ما كان الموقع مربوطاً)
+   2) نسخة محلية محفوظة في المتصفح — تُستخدم لو انقطع الاتصال
+   3) ملف data/menu.json المرفوع مع الموقع
+   4) البيانات الافتراضية المدمجة بالأسفل
    ============================================================ */
 (function (global) {
   'use strict';
 
-  var STORAGE_KEY = 'menuApp.data.v1';
-  var SESSION_KEY = 'menuApp.admin';
-  var DIRTY_KEY   = 'menuApp.unpublished';
-
-  /* كلمة المرور الافتراضية: admin1234  (يفضّل تغييرها من لوحة التحكم) */
-  var DEFAULT_PASS_HASH =
-    'ac9689e2272427085e35b9d3e3e8bed88cb3434828b43b86fc0596cad4c6e270';
+  /* نسخة محلية من آخر منيو نجح تحميله أو حفظه — تُستخدم لو انقطع الاتصال */
+  var CACHE_KEY  = 'menuApp.cache.v2';
+  var LEGACY_KEY = 'menuApp.data.v1';
 
   var DEFAULT_DATA = {
     settings: {
@@ -24,7 +21,6 @@
       currency: 'ر.س',
       theme: { bg: '#ffffff', accent: '#2c3a2e' },
       showCalories: true,
-      adminPasswordHash: DEFAULT_PASS_HASH,
       contact: {
         phone: '',
         whatsapp: '',
@@ -68,19 +64,6 @@
     return (prefix || 'x') + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   }
 
-  async function sha256(text) {
-    if (global.crypto && global.crypto.subtle) {
-      var buf = await global.crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-      return Array.prototype.map
-        .call(new Uint8Array(buf), function (b) { return b.toString(16).padStart(2, '0'); })
-        .join('');
-    }
-    /* بديل بسيط إذا كان المتصفح قديماً أو الصفحة غير آمنة */
-    var h = 0, i;
-    for (i = 0; i < text.length; i++) { h = (h * 31 + text.charCodeAt(i)) | 0; }
-    return 'fallback:' + h;
-  }
-
   /* يضمن اكتمال البيانات حتى لو كان الملف قديماً أو ناقصاً */
   function normalize(data) {
     var d = clone(DEFAULT_DATA);
@@ -91,6 +74,7 @@
         if (k === 'theme' || k === 'contact') return;
         if (data.settings[k] !== undefined) d.settings[k] = data.settings[k];
       });
+      delete d.settings.adminPasswordHash; /* الدخول صار عبر حساب حقيقي */
       if (data.settings.theme) Object.assign(d.settings.theme, data.settings.theme);
       if (data.settings.contact) Object.assign(d.settings.contact, data.settings.contact);
     }
@@ -124,70 +108,86 @@
     return d;
   }
 
+  function readLocal(key) {
+    try {
+      var raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  function writeLocal(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+    catch (e) { return false; }
+  }
+
   var Store = {
     data: null,
-    /** true إذا كانت البيانات المعروضة تعديلات محلية غير منشورة */
-    hasLocalEdits: false,
+    /* من وين جت البيانات المعروضة: cloud | cloud-empty | offline | local | file */
+    source: 'file',
+    cloudError: null,
 
-    async init() {
-      var saved = null;
-      try { saved = localStorage.getItem(STORAGE_KEY); } catch (e) { /* الوضع الخاص */ }
-
-      if (saved) {
-        try {
-          this.data = normalize(JSON.parse(saved));
-          this.hasLocalEdits = true;
-          return this.data;
-        } catch (e) { /* ملف تالف — نكمل للمصدر التالي */ }
-      }
-
+    /* ملف data/menu.json إن وُجد، وإلا البيانات المدمجة */
+    async fromFile() {
       try {
         var res = await fetch('data/menu.json', { cache: 'no-store' });
-        if (res.ok) {
-          this.data = normalize(await res.json());
-          return this.data;
-        }
+        if (res.ok) return await res.json();
       } catch (e) { /* فتح الملف مباشرة من الجهاز أو الملف غير موجود */ }
-
-      this.data = clone(DEFAULT_DATA);
-      return this.data;
+      return clone(DEFAULT_DATA);
     },
 
-    save() {
+    async init() {
+      this.cloudError = null;
+      var fallback = await this.fromFile();
+
+      if (!Cloud.isConfigured()) {
+        var local = readLocal(CACHE_KEY) || readLocal(LEGACY_KEY);
+        this.data = normalize(local || fallback);
+        this.source = local ? 'local' : 'file';
+        return this.data;
+      }
+
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
-        this.hasLocalEdits = true;
-        this.markUnpublished();
-        return true;
+        var remote = await Cloud.loadMenu();
+        if (remote) {
+          this.data = normalize(remote);
+          this.source = 'cloud';
+          writeLocal(CACHE_KEY, this.data);
+          return this.data;
+        }
+        /* قاعدة البيانات فاضية — نعرض الملف، وأول حفظ ينقله لها */
+        this.data = normalize(fallback);
+        this.source = 'cloud-empty';
+        return this.data;
       } catch (e) {
-        return false; /* غالباً امتلأت المساحة بسبب صور مرفوعة كبيرة */
+        this.cloudError = e.message;
+        this.data = normalize(readLocal(CACHE_KEY) || fallback);
+        this.source = 'offline';
+        return this.data;
       }
     },
 
-    /* ---------- تعديلات لم تُنشر بعد ---------- */
-    markUnpublished() {
-      try { localStorage.setItem(DIRTY_KEY, '1'); } catch (e) {}
-    },
-    clearUnpublished() {
-      try { localStorage.removeItem(DIRTY_KEY); } catch (e) {}
-    },
-    hasUnpublished() {
-      try { return localStorage.getItem(DIRTY_KEY) === '1'; } catch (e) { return false; }
-    },
-
-    async reset() {
-      try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
-      this.hasLocalEdits = false;
-      this.clearUnpublished();
-      return this.init();
+    /* يحفظ في قاعدة البيانات. يرمي خطأ واضح إذا فشل، فلا نخزّن نسخة
+       محلية توهم صاحب المحل إن التعديل انحفظ. */
+    async save() {
+      if (!Cloud.isConfigured()) {
+        if (!writeLocal(CACHE_KEY, this.data)) {
+          throw new Error('تعذّر الحفظ — مساحة المتصفح ممتلئة.');
+        }
+        this.source = 'local';
+        return true;
+      }
+      await Cloud.saveMenu(this.data);
+      writeLocal(CACHE_KEY, this.data);
+      this.source = 'cloud';
+      return true;
     },
 
-    toJSON() { return JSON.stringify(this.data, null, 2); },
+    toJSON() { return JSON.stringify(this.data, null, 2) + '\n'; },
 
-    import(json) {
+    async import(json) {
       var parsed = typeof json === 'string' ? JSON.parse(json) : json;
       this.data = normalize(parsed);
-      this.save();
+      await this.save();
       return this.data;
     },
 
@@ -211,25 +211,7 @@
         .sort(function (a, b) { return a.order - b.order; });
     },
 
-    /* ---------- كلمة المرور ---------- */
-    async checkPassword(pass) {
-      var h = await sha256(pass);
-      return h === this.data.settings.adminPasswordHash;
-    },
-    async setPassword(pass) {
-      this.data.settings.adminPasswordHash = await sha256(pass);
-      return this.save();
-    },
-    isLoggedIn() {
-      try { return sessionStorage.getItem(SESSION_KEY) === '1'; } catch (e) { return false; }
-    },
-    setLoggedIn(v) {
-      try { v ? sessionStorage.setItem(SESSION_KEY, '1') : sessionStorage.removeItem(SESSION_KEY); }
-      catch (e) {}
-    },
-
     uid: uid,
-    sha256: sha256,
     DEFAULT_DATA: DEFAULT_DATA
   };
 
