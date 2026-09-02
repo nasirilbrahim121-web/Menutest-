@@ -1,13 +1,16 @@
 /* ================= المتغيرات والأساسيات ================= */
 :root{
-  --bg:#f6e7ef;
+  --bg:#ffffff;
   --accent:#2c3a2e;
-  --card:#fffafc;
+  --card:#ffffff;
   --text:#20242a;
   --muted:#8a8590;
-  --line:rgba(44,58,46,.12);
+  --line:rgba(20,20,25,.10);
+  /* أسطح محايدة تبقى ظاهرة مع أي لون خلفية يختاره الأدمن */
+  --surface:rgba(20,20,25,.05);
+  --surface-strong:rgba(20,20,25,.09);
   --radius:18px;
-  --shadow:0 6px 20px rgba(60,30,50,.08);
+  --shadow:0 4px 16px rgba(20,20,25,.07);
   --font:"IBM Plex Sans Arabic","Tajawal","Segoe UI",system-ui,-apple-system,sans-serif;
 }
 *{box-sizing:border-box}
@@ -46,9 +49,9 @@ h1,h2,h3{margin:0}
 
 .search-wrap{position:relative;margin-bottom:12px}
 .search-wrap input{
-  width:100%;border:0;background:rgba(255,255,255,.75);
+  width:100%;border:0;background:var(--surface);
   border-radius:14px;padding:13px 44px 13px 40px;outline:none;
-  font-size:15px;box-shadow:var(--shadow);
+  font-size:15px;
 }
 .search-wrap input::placeholder{color:var(--muted)}
 .search-icon{position:absolute;inset-inline-start:14px;top:50%;transform:translateY(-50%);width:20px;height:20px;fill:var(--muted)}
@@ -63,13 +66,13 @@ h1,h2,h3{margin:0}
 .tabs::-webkit-scrollbar{display:none}
 .tab{
   flex:0 0 auto;border:0;cursor:pointer;
-  background:rgba(255,255,255,.7);color:var(--text);
+  background:var(--surface);color:var(--text);
   border-radius:999px;padding:10px 16px;font-size:14px;font-weight:600;
   display:inline-flex;align-items:center;gap:6px;transition:.15s;
 }
 .tab.is-active{background:var(--accent);color:#fff}
 .tab .badge{
-  background:rgba(0,0,0,.08);border-radius:999px;padding:1px 7px;font-size:12px;
+  background:var(--surface-strong);border-radius:999px;padding:1px 7px;font-size:12px;
 }
 .tab.is-active .badge{background:rgba(255,255,255,.22)}
 .tab svg{width:16px;height:16px;fill:currentColor}
@@ -95,7 +98,7 @@ h1,h2,h3{margin:0}
 .price .old{font-size:13px;font-weight:600;color:var(--muted);text-decoration:line-through}
 .item-thumb{
   width:78px;height:78px;flex:0 0 78px;border-radius:14px;object-fit:cover;
-  background:rgba(255,255,255,.6);
+  background:var(--surface);
 }
 .item-thumb.ph{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;text-align:center;padding:4px}
 .tag-off{background:var(--accent);color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:600}
@@ -106,7 +109,7 @@ h1,h2,h3{margin:0}
 .foot{padding:24px 18px 90px;text-align:center;color:var(--muted);font-size:13px}
 .foot-info{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:10px}
 .foot-info a,.foot-info span{
-  color:var(--accent);text-decoration:none;background:rgba(255,255,255,.6);
+  color:var(--accent);text-decoration:none;background:var(--surface);
   border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600
 }
 .foot-note{margin:0;font-size:12px}
@@ -115,7 +118,7 @@ h1,h2,h3{margin:0}
 .to-top{
   position:fixed;inset-block-end:18px;inset-inline-start:18px;z-index:25;
   width:44px;height:44px;border-radius:50%;border:0;cursor:pointer;
-  background:var(--card);box-shadow:var(--shadow);
+  background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);
   display:none;align-items:center;justify-content:center;
 }
 .to-top.show{display:flex}

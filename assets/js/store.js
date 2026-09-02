@@ -21,7 +21,7 @@
       tagline: 'منيو المشروبات',
       logo: '',
       currency: 'ر.س',
-      theme: { bg: '#f6e7ef', accent: '#2c3a2e' },
+      theme: { bg: '#ffffff', accent: '#2c3a2e' },
       showCalories: true,
       adminPasswordHash: DEFAULT_PASS_HASH,
       contact: {

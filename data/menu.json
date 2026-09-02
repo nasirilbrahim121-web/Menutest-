@@ -5,7 +5,7 @@
     "logo": "",
     "currency": "ر.س",
     "theme": {
-      "bg": "#f6e7ef",
+      "bg": "#ffffff",
       "accent": "#2c3a2e"
     },
     "showCalories": true,
