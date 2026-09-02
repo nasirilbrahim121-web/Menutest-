@@ -1,0 +1,213 @@
+/* ================= المتغيرات والأساسيات ================= */
+:root{
+  --bg:#f6e7ef;
+  --accent:#2c3a2e;
+  --card:#fffafc;
+  --text:#20242a;
+  --muted:#8a8590;
+  --line:rgba(44,58,46,.12);
+  --radius:18px;
+  --shadow:0 6px 20px rgba(60,30,50,.08);
+  --font:"IBM Plex Sans Arabic","Tajawal","Segoe UI",system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--font);
+  background:var(--bg);
+  color:var(--text);
+  -webkit-tap-highlight-color:transparent;
+  overscroll-behavior-y:contain;
+}
+img{max-width:100%;display:block}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+h1,h2,h3{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.error{color:#c62828;font-size:14px;margin:6px 0 0}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:left}
+
+/* على الشاشات الكبيرة نبقي المنيو بعرض مريح في المنتصف */
+#app{max-width:640px;margin:0 auto;position:relative}
+
+/* ================= الشريط العلوي ================= */
+.topbar{
+  position:sticky;top:0;z-index:30;
+  background:var(--bg);
+  padding:14px 14px 0;
+  box-shadow:0 6px 14px -12px rgba(0,0,0,.4);
+}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:10px;user-select:none;cursor:default}
+.brand-logo{width:38px;height:38px;border-radius:12px;object-fit:cover}
+.brand-text h1{font-size:18px;font-weight:700}
+.brand-text p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+
+.search-wrap{position:relative;margin-bottom:12px}
+.search-wrap input{
+  width:100%;border:0;background:rgba(255,255,255,.75);
+  border-radius:14px;padding:13px 44px 13px 40px;outline:none;
+  font-size:15px;box-shadow:var(--shadow);
+}
+.search-wrap input::placeholder{color:var(--muted)}
+.search-icon{position:absolute;inset-inline-start:14px;top:50%;transform:translateY(-50%);width:20px;height:20px;fill:var(--muted)}
+.clear-search{position:absolute;inset-inline-end:12px;top:50%;transform:translateY(-50%);
+  border:0;background:transparent;font-size:22px;color:var(--muted);cursor:pointer;line-height:1}
+
+/* ================= أزرار الأقسام ================= */
+.tabs{
+  display:flex;gap:8px;overflow-x:auto;padding-bottom:12px;
+  scrollbar-width:none;-ms-overflow-style:none;
+}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  flex:0 0 auto;border:0;cursor:pointer;
+  background:rgba(255,255,255,.7);color:var(--text);
+  border-radius:999px;padding:10px 16px;font-size:14px;font-weight:600;
+  display:inline-flex;align-items:center;gap:6px;transition:.15s;
+}
+.tab.is-active{background:var(--accent);color:#fff}
+.tab .badge{
+  background:rgba(0,0,0,.08);border-radius:999px;padding:1px 7px;font-size:12px;
+}
+.tab.is-active .badge{background:rgba(255,255,255,.22)}
+.tab svg{width:16px;height:16px;fill:currentColor}
+
+/* ================= قائمة الأصناف ================= */
+.list{padding:0 14px 90px}
+.cat-title{font-size:15px;font-weight:700;margin:18px 4px 6px;color:var(--accent)}
+.item{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 4px;border-bottom:1px solid var(--line);
+  cursor:pointer;background:transparent;width:100%;border:0;border-bottom:1px solid var(--line);
+  text-align:start;
+}
+.item:last-child{border-bottom:0}
+.item.is-out{opacity:.45}
+.item-info{flex:1;min-width:0}
+.item-name{font-size:16px;font-weight:700;margin:0}
+.item-cal{font-size:12px;color:var(--muted);margin:3px 0 6px}
+.item-desc{font-size:12.5px;color:var(--muted);margin:0 0 6px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.price{display:flex;align-items:center;gap:6px;font-size:17px;font-weight:700}
+.price .cur{font-size:14px;font-weight:600;color:var(--accent)}
+.price .old{font-size:13px;font-weight:600;color:var(--muted);text-decoration:line-through}
+.item-thumb{
+  width:78px;height:78px;flex:0 0 78px;border-radius:14px;object-fit:cover;
+  background:rgba(255,255,255,.6);
+}
+.item-thumb.ph{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;text-align:center;padding:4px}
+.tag-off{background:var(--accent);color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:600}
+.out-badge{background:#e0e0e0;color:#666;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:600}
+.empty{text-align:center;color:var(--muted);padding:40px 20px}
+
+/* ================= التذييل ================= */
+.foot{padding:24px 18px 90px;text-align:center;color:var(--muted);font-size:13px}
+.foot-info{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:10px}
+.foot-info a,.foot-info span{
+  color:var(--accent);text-decoration:none;background:rgba(255,255,255,.6);
+  border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600
+}
+.foot-note{margin:0;font-size:12px}
+
+/* زر الصعود لأعلى */
+.to-top{
+  position:fixed;inset-block-end:18px;inset-inline-start:18px;z-index:25;
+  width:44px;height:44px;border-radius:50%;border:0;cursor:pointer;
+  background:var(--card);box-shadow:var(--shadow);
+  display:none;align-items:center;justify-content:center;
+}
+.to-top.show{display:flex}
+.to-top svg{width:22px;height:22px;fill:var(--accent)}
+
+/* ================= النوافذ المنبثقة ================= */
+.overlay{
+  position:fixed;inset:0;z-index:60;background:rgba(20,10,20,.45);
+  display:flex;align-items:flex-end;justify-content:center;padding:0;
+}
+@media(min-width:640px){.overlay{align-items:center;padding:20px}}
+.sheet{
+  background:var(--card);width:100%;max-width:520px;
+  border-radius:22px 22px 0 0;padding:22px 18px 28px;position:relative;
+  max-height:92vh;overflow:auto;
+}
+@media(min-width:640px){.sheet{border-radius:22px}}
+.sheet.narrow{max-width:460px}
+/* نوافذ الإدارة لازم تكون فوق لوحة التحكم */
+#editModal,#loginModal{z-index:100}
+.sheet h2{font-size:19px;margin-bottom:8px}
+.sheet-close{position:absolute;inset-inline-end:14px;top:10px;border:0;background:transparent;
+  font-size:28px;line-height:1;color:var(--muted);cursor:pointer}
+.sheet-img{margin:6px 0 14px}
+.sheet-img img{width:100%;height:220px;object-fit:cover;border-radius:16px}
+.sheet-price{margin-top:14px;font-size:22px;font-weight:700;display:flex;gap:8px;align-items:center}
+.sheet input,.sheet select,.sheet textarea{
+  width:100%;margin-top:10px;border:1px solid var(--line);border-radius:12px;padding:12px;outline:none;background:#fff
+}
+
+/* ================= الأزرار ================= */
+.btn{
+  border:0;border-radius:12px;padding:12px 18px;font-size:15px;font-weight:600;
+  cursor:pointer;margin-top:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px
+}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.ghost{background:rgba(0,0,0,.06);color:var(--text)}
+.btn.danger{color:#c62828}
+.btn.tiny{padding:7px 12px;font-size:13px;margin-top:0}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap}
+.file-btn{cursor:pointer}
+
+/* ================= لوحة التحكم ================= */
+.admin{position:fixed;inset:0;z-index:80;background:#f7f7f9;display:flex;flex-direction:column;overflow:hidden}
+.admin-top{
+  flex:none;background:var(--accent);color:#fff;
+  padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap
+}
+.admin-top h2{font-size:17px}
+.admin-top .btn{margin-top:0;background:rgba(255,255,255,.16);color:#fff}
+.admin-top .btn.danger{color:#ffd7d7}
+.admin-tabs{flex:none;display:flex;gap:6px;overflow-x:auto;background:#fff;padding:10px 12px;
+  border-bottom:1px solid #e6e6ea;scrollbar-width:none}
+.admin-tabs::-webkit-scrollbar{display:none}
+.atab{flex:0 0 auto;border:0;background:#f0f0f4;border-radius:999px;padding:9px 15px;
+  font-size:14px;font-weight:600;cursor:pointer}
+.atab.is-active{background:var(--accent);color:#fff}
+.admin-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px 60px;max-width:760px;width:100%;margin:0 auto}
+.aview h3{font-size:16px;margin:18px 0 8px}
+.aview h3:first-child{margin-top:0}
+.row-between{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.row-between .btn{margin-top:0}
+.input{
+  width:100%;border:1px solid #dcdce2;border-radius:10px;padding:11px;background:#fff;outline:none
+}
+.input:focus{border-color:var(--accent)}
+.input.color{padding:4px;height:44px}
+.field{display:block;margin-bottom:12px}
+.field>span{display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:#555}
+.check{display:flex;align-items:center;gap:8px;margin:10px 0 16px;font-size:14px}
+.check input{width:18px;height:18px}
+.admin-list{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.arow{
+  background:#fff;border:1px solid #e8e8ee;border-radius:14px;padding:12px;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap
+}
+.arow img,.arow .ph{width:52px;height:52px;flex:0 0 52px;border-radius:10px;object-fit:cover;
+  background:#f0f0f4;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999}
+.arow-main{flex:1 1 120px;min-width:0}
+.arow-main b{display:block;font-size:15px}
+.arow-main small{color:#888;font-size:12px}
+.arow-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:560px){
+  .arow-actions{flex:1 1 100%;justify-content:flex-start;border-top:1px solid #f0f0f4;padding-top:10px}
+}
+.arow-actions .btn{margin-top:0}
+.iconbtn{border:0;background:#f0f0f4;border-radius:9px;width:34px;height:34px;cursor:pointer;font-size:15px}
+.logo-preview img{width:64px;height:64px;border-radius:14px;object-fit:cover;margin-bottom:12px}
+.scrollable{max-height:90vh}
+
+/* ================= التنبيه ================= */
+.toast{
+  position:fixed;inset-block-end:26px;inset-inline:0;margin:auto;width:max-content;max-width:88%;
+  background:#222;color:#fff;padding:12px 20px;border-radius:999px;font-size:14px;z-index:120;
+  box-shadow:0 8px 24px rgba(0,0,0,.25)
+}

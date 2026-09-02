@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<meta name="theme-color" content="#f6e7ef">
+<title>المنيو</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<!-- ============ واجهة الزبون ============ -->
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand" id="brandTap" title="">
+      <img id="brandLogo" class="brand-logo" alt="" hidden>
+      <div class="brand-text">
+        <h1 id="shopName">المنيو</h1>
+        <p id="shopTagline"></p>
+      </div>
+    </div>
+
+    <div class="search-wrap">
+      <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 105.06 13.06l3.94 3.94 1.5-1.5-3.94-3.94A7.5 7.5 0 0010.5 3zm0 2a5.5 5.5 0 110 11 5.5 5.5 0 010-11z"/></svg>
+      <input id="searchInput" type="search" inputmode="search" placeholder="ابحث عن الأصناف..." aria-label="ابحث عن الأصناف">
+      <button id="clearSearch" class="clear-search" type="button" aria-label="مسح البحث" hidden>&times;</button>
+    </div>
+
+    <nav id="tabs" class="tabs" aria-label="الأقسام"></nav>
+  </header>
+
+  <main id="list" class="list" aria-live="polite"></main>
+
+  <p id="emptyState" class="empty" hidden>لا توجد أصناف مطابقة</p>
+
+  <footer class="foot">
+    <div id="footInfo" class="foot-info"></div>
+    <p class="foot-note">جميع الأسعار شاملة ضريبة القيمة المضافة</p>
+  </footer>
+
+  <button id="toTop" class="to-top" type="button" aria-label="أعلى الصفحة">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8l-6 6 1.4 1.4L12 10.8l4.6 4.6L18 14z"/></svg>
+  </button>
+</div>
+
+<!-- ============ نافذة تفاصيل الصنف ============ -->
+<div id="itemModal" class="overlay" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mdName">
+    <button class="sheet-close" type="button" data-close aria-label="إغلاق">&times;</button>
+    <div id="mdImgWrap" class="sheet-img"></div>
+    <h2 id="mdName"></h2>
+    <p id="mdCal" class="muted"></p>
+    <p id="mdDesc"></p>
+    <div id="mdPrice" class="sheet-price"></div>
+  </div>
+</div>
+
+<!-- ============ دخول الأدمن (مخفي) ============ -->
+<div id="loginModal" class="overlay" hidden>
+  <form class="sheet narrow" id="loginForm" autocomplete="off">
+    <button class="sheet-close" type="button" data-close aria-label="إغلاق">&times;</button>
+    <h2>دخول الإدارة</h2>
+    <p class="muted" id="loginHint">أدخل كلمة المرور للمتابعة</p>
+    <input id="loginPass" type="password" placeholder="كلمة المرور" autocomplete="current-password" required>
+    <p id="loginError" class="error" hidden>كلمة المرور غير صحيحة</p>
+    <button class="btn primary" type="submit">دخول</button>
+  </form>
+</div>
+
+<!-- ============ لوحة تحكم الأدمن ============ -->
+<div id="adminPanel" class="admin" hidden>
+  <header class="admin-top">
+    <h2>لوحة التحكم</h2>
+    <div class="admin-top-actions">
+      <button class="btn ghost" id="previewBtn" type="button">معاينة المنيو</button>
+      <button class="btn ghost danger" id="logoutBtn" type="button">خروج</button>
+    </div>
+  </header>
+
+  <nav class="admin-tabs">
+    <button class="atab is-active" data-view="items" type="button">الأصناف</button>
+    <button class="atab" data-view="cats" type="button">الأقسام</button>
+    <button class="atab" data-view="info" type="button">معلومات المحل</button>
+    <button class="atab" data-view="backup" type="button">حفظ ونسخ احتياطي</button>
+  </nav>
+
+  <div class="admin-body">
+
+    <section class="aview" data-view="items">
+      <div class="row-between">
+        <h3>الأصناف</h3>
+        <button class="btn primary" id="addItemBtn" type="button">+ إضافة صنف</button>
+      </div>
+      <select id="filterCat" class="input" aria-label="تصفية حسب القسم"></select>
+      <div id="adminItems" class="admin-list"></div>
+    </section>
+
+    <section class="aview" data-view="cats" hidden>
+      <div class="row-between">
+        <h3>الأقسام</h3>
+        <button class="btn primary" id="addCatBtn" type="button">+ إضافة قسم</button>
+      </div>
+      <div id="adminCats" class="admin-list"></div>
+    </section>
+
+    <section class="aview" data-view="info" hidden>
+      <h3>معلومات المحل</h3>
+      <label class="field"><span>اسم المحل</span><input class="input" id="setShopName"></label>
+      <label class="field"><span>الوصف / الشعار النصي</span><input class="input" id="setTagline"></label>
+      <label class="field"><span>شعار المحل (صورة)</span><input class="input" id="setLogoFile" type="file" accept="image/*"></label>
+      <div id="logoPreview" class="logo-preview"></div>
+      <label class="field"><span>رمز العملة</span><input class="input" id="setCurrency"></label>
+      <label class="field"><span>لون الخلفية</span><input class="input color" id="setBg" type="color"></label>
+      <label class="field"><span>اللون الأساسي</span><input class="input color" id="setAccent" type="color"></label>
+      <label class="check"><input type="checkbox" id="setShowCal"> <span>إظهار السعرات الحرارية</span></label>
+
+      <h3>بيانات التواصل (تظهر أسفل المنيو)</h3>
+      <label class="field"><span>الجوال</span><input class="input" id="setPhone" inputmode="tel"></label>
+      <label class="field"><span>واتساب</span><input class="input" id="setWhatsapp" inputmode="tel" placeholder="9665xxxxxxxx"></label>
+      <label class="field"><span>انستقرام</span><input class="input" id="setInstagram" placeholder="username"></label>
+      <label class="field"><span>العنوان</span><input class="input" id="setAddress"></label>
+      <label class="field"><span>أوقات العمل</span><input class="input" id="setHours"></label>
+      <label class="field"><span>ملاحظات داخلية (لا تظهر للزبون)</span><textarea class="input" id="setNotes" rows="3"></textarea></label>
+
+      <h3>كلمة مرور الإدارة</h3>
+      <label class="field"><span>كلمة مرور جديدة</span><input class="input" id="setPass1" type="password" autocomplete="new-password"></label>
+      <label class="field"><span>تأكيد كلمة المرور</span><input class="input" id="setPass2" type="password" autocomplete="new-password"></label>
+      <p class="muted small">اتركها فارغة إذا ما تبي تغيرها.</p>
+
+      <button class="btn primary" id="saveInfoBtn" type="button">حفظ التغييرات</button>
+    </section>
+
+    <section class="aview" data-view="backup" hidden>
+      <h3>حفظ ونسخ احتياطي</h3>
+      <p class="muted">
+        التعديلات محفوظة داخل هذا الجهاز فقط. لنشر المنيو لكل الزبائن:
+        نزّل ملف <code>menu.json</code> ثم استبدل به الملف الموجود في المجلد <code>data/</code> داخل المستودع.
+      </p>
+      <div class="btn-row">
+        <button class="btn primary" id="exportBtn" type="button">تنزيل ملف المنيو (menu.json)</button>
+        <label class="btn ghost file-btn">استيراد ملف منيو<input id="importFile" type="file" accept="application/json" hidden></label>
+        <button class="btn ghost danger" id="resetBtn" type="button">استرجاع المنيو الأصلي</button>
+      </div>
+      <h3>نسخ سريع</h3>
+      <textarea id="jsonBox" class="input mono" rows="12" readonly></textarea>
+      <button class="btn ghost" id="copyJsonBtn" type="button">نسخ المحتوى</button>
+    </section>
+
+  </div>
+</div>
+
+<!-- ============ نموذج تعديل صنف / قسم ============ -->
+<div id="editModal" class="overlay" hidden>
+  <form class="sheet narrow scrollable" id="editForm" autocomplete="off">
+    <button class="sheet-close" type="button" data-close aria-label="إغلاق">&times;</button>
+    <h2 id="editTitle">تعديل</h2>
+    <div id="editFields"></div>
+    <div class="btn-row">
+      <button class="btn primary" type="submit">حفظ</button>
+      <button class="btn ghost" type="button" data-close>إلغاء</button>
+    </div>
+  </form>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="assets/js/store.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/admin.js"></script>
+</body>
+</html>

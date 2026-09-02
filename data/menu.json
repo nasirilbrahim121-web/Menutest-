@@ -1,0 +1,233 @@
+{
+  "settings": {
+    "shopName": "قهوة الركن",
+    "tagline": "منيو المشروبات",
+    "logo": "",
+    "currency": "ر.س",
+    "theme": {
+      "bg": "#f6e7ef",
+      "accent": "#2c3a2e"
+    },
+    "showCalories": true,
+    "adminPasswordHash": "ac9689e2272427085e35b9d3e3e8bed88cb3434828b43b86fc0596cad4c6e270",
+    "contact": {
+      "phone": "",
+      "whatsapp": "",
+      "instagram": "",
+      "address": "",
+      "hours": "",
+      "notes": ""
+    }
+  },
+  "categories": [
+    {
+      "id": "hot",
+      "name": "المشروبات الساخنة",
+      "order": 1
+    },
+    {
+      "id": "cold",
+      "name": "المشروبات الباردة",
+      "order": 2
+    },
+    {
+      "id": "desserts",
+      "name": "الحلويات",
+      "order": 3
+    }
+  ],
+  "items": [
+    {
+      "id": "i01",
+      "categoryId": "hot",
+      "name": "كابتشينو",
+      "desc": "",
+      "calories": 210,
+      "price": 19,
+      "oldPrice": null,
+      "image": "images/cappuccino.jpg",
+      "available": true,
+      "order": 1
+    },
+    {
+      "id": "i02",
+      "categoryId": "hot",
+      "name": "دبل ماكياتو",
+      "desc": "",
+      "calories": 190,
+      "price": 18,
+      "oldPrice": null,
+      "image": "images/double-macchiato.jpg",
+      "available": true,
+      "order": 2
+    },
+    {
+      "id": "i03",
+      "categoryId": "hot",
+      "name": "موكا",
+      "desc": "",
+      "calories": 250,
+      "price": 20,
+      "oldPrice": null,
+      "image": "images/mocha.jpg",
+      "available": true,
+      "order": 3
+    },
+    {
+      "id": "i04",
+      "categoryId": "hot",
+      "name": "هوت شوكليت",
+      "desc": "",
+      "calories": 230,
+      "price": 17,
+      "oldPrice": null,
+      "image": "images/hot-chocolate.jpg",
+      "available": true,
+      "order": 4
+    },
+    {
+      "id": "i05",
+      "categoryId": "hot",
+      "name": "قهوة سعودية",
+      "desc": "",
+      "calories": 10,
+      "price": 9,
+      "oldPrice": null,
+      "image": "images/saudi-coffee.jpg",
+      "available": true,
+      "order": 5
+    },
+    {
+      "id": "i06",
+      "categoryId": "hot",
+      "name": "أمريكانو",
+      "desc": "",
+      "calories": 15,
+      "price": 15,
+      "oldPrice": null,
+      "image": "images/americano.jpg",
+      "available": true,
+      "order": 6
+    },
+    {
+      "id": "i07",
+      "categoryId": "hot",
+      "name": "لاتيه",
+      "desc": "",
+      "calories": 220,
+      "price": 18,
+      "oldPrice": 22,
+      "image": "images/latte.jpg",
+      "available": true,
+      "order": 7
+    },
+    {
+      "id": "i08",
+      "categoryId": "hot",
+      "name": "اسبريسو",
+      "desc": "",
+      "calories": 5,
+      "price": 12,
+      "oldPrice": null,
+      "image": "images/espresso.jpg",
+      "available": true,
+      "order": 8
+    },
+    {
+      "id": "i09",
+      "categoryId": "hot",
+      "name": "شاي كرك",
+      "desc": "",
+      "calories": 120,
+      "price": 8,
+      "oldPrice": null,
+      "image": "images/karak-tea.jpg",
+      "available": true,
+      "order": 9
+    },
+    {
+      "id": "i10",
+      "categoryId": "cold",
+      "name": "آيس لاتيه",
+      "desc": "",
+      "calories": 230,
+      "price": 20,
+      "oldPrice": null,
+      "image": "images/ice-latte.jpg",
+      "available": true,
+      "order": 1
+    },
+    {
+      "id": "i11",
+      "categoryId": "cold",
+      "name": "آيس أمريكانو",
+      "desc": "",
+      "calories": 20,
+      "price": 17,
+      "oldPrice": null,
+      "image": "images/ice-americano.jpg",
+      "available": true,
+      "order": 2
+    },
+    {
+      "id": "i12",
+      "categoryId": "cold",
+      "name": "آيس موكا",
+      "desc": "",
+      "calories": 280,
+      "price": 22,
+      "oldPrice": 26,
+      "image": "images/ice-mocha.jpg",
+      "available": true,
+      "order": 3
+    },
+    {
+      "id": "i13",
+      "categoryId": "cold",
+      "name": "ميلك شيك",
+      "desc": "",
+      "calories": 380,
+      "price": 24,
+      "oldPrice": null,
+      "image": "images/milkshake.jpg",
+      "available": true,
+      "order": 4
+    },
+    {
+      "id": "i14",
+      "categoryId": "cold",
+      "name": "ليموناضة نعناع",
+      "desc": "",
+      "calories": 150,
+      "price": 18,
+      "oldPrice": null,
+      "image": "images/mint-lemonade.jpg",
+      "available": true,
+      "order": 5
+    },
+    {
+      "id": "i15",
+      "categoryId": "desserts",
+      "name": "تشيز كيك",
+      "desc": "",
+      "calories": 420,
+      "price": 21,
+      "oldPrice": null,
+      "image": "images/cheesecake.jpg",
+      "available": true,
+      "order": 1
+    },
+    {
+      "id": "i16",
+      "categoryId": "desserts",
+      "name": "كرواسان",
+      "desc": "",
+      "calories": 310,
+      "price": 12,
+      "oldPrice": null,
+      "image": "images/croissant.jpg",
+      "available": true,
+      "order": 2
+    }
+  ]
+}
