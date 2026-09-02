@@ -10,6 +10,7 @@
 
   var STORAGE_KEY = 'menuApp.data.v1';
   var SESSION_KEY = 'menuApp.admin';
+  var DIRTY_KEY   = 'menuApp.unpublished';
 
   /* كلمة المرور الافتراضية: admin1234  (يفضّل تغييرها من لوحة التحكم) */
   var DEFAULT_PASS_HASH =
@@ -156,15 +157,28 @@
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
         this.hasLocalEdits = true;
+        this.markUnpublished();
         return true;
       } catch (e) {
         return false; /* غالباً امتلأت المساحة بسبب صور مرفوعة كبيرة */
       }
     },
 
+    /* ---------- تعديلات لم تُنشر بعد ---------- */
+    markUnpublished() {
+      try { localStorage.setItem(DIRTY_KEY, '1'); } catch (e) {}
+    },
+    clearUnpublished() {
+      try { localStorage.removeItem(DIRTY_KEY); } catch (e) {}
+    },
+    hasUnpublished() {
+      try { return localStorage.getItem(DIRTY_KEY) === '1'; } catch (e) { return false; }
+    },
+
     async reset() {
       try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
       this.hasLocalEdits = false;
+      this.clearUnpublished();
       return this.init();
     },
 

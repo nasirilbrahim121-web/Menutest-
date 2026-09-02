@@ -170,6 +170,14 @@ h1,h2,h3{margin:0}
 .admin-top h2{font-size:17px}
 .admin-top .btn{margin-top:0;background:rgba(255,255,255,.16);color:#fff}
 .admin-top .btn.danger{color:#ffd7d7}
+.admin-top .btn.publish{background:#fff;color:var(--accent)}
+.admin-top .btn.publish.has-changes{background:#ffd86b;color:#3a2f00}
+.admin-top .btn:disabled{opacity:.6;cursor:progress}
+.ltr{direction:ltr;text-align:left}
+.pub-status{margin:12px 0 0;padding:11px 13px;border-radius:10px;font-size:14px;
+  background:#eef0f4;color:#444;line-height:1.7}
+.pub-status.is-ok{background:#e6f4ea;color:#1e5b32}
+.pub-status.is-err{background:#fdecea;color:#8c1d13}
 .admin-tabs{flex:none;display:flex;gap:6px;overflow-x:auto;background:#fff;padding:10px 12px;
   border-bottom:1px solid #e6e6ea;scrollbar-width:none}
 .admin-tabs::-webkit-scrollbar{display:none}

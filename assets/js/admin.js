@@ -25,10 +25,11 @@
 
   function persist() {
     if (!Store.save()) {
-      toast('تعذّر الحفظ — المساحة ممتلئة. جرّب صوراً أصغر أو استخدم مسار صورة بدل الرفع.');
+      toast('تعذّر الحفظ — مساحة المتصفح ممتلئة. انشر تعديلاتك أولاً، أو استخدم صوراً أصغر.');
       return false;
     }
     global.renderMenu();
+    refreshPublishBadge();
     return true;
   }
 
@@ -78,6 +79,8 @@
     panel.hidden = false;
     document.body.style.overflow = 'hidden';
     fillSettingsForm();
+    fillPublishForm();
+    refreshPublishBadge();
     renderItems();
     renderCats();
     document.getElementById('jsonBox').value = Store.toJSON();
@@ -103,6 +106,90 @@
   });
 
   document.getElementById('previewBtn').addEventListener('click', close);
+
+  /* ============================================================
+     النشر المباشر إلى المستودع
+     ============================================================ */
+  var ghStatus = document.getElementById('ghStatus');
+
+  function setStatus(msg, kind) {
+    ghStatus.textContent = msg;
+    ghStatus.className = 'pub-status' + (kind ? ' is-' + kind : '');
+    ghStatus.hidden = !msg;
+  }
+
+  function fillPublishForm() {
+    var c = Publish.loadConfig();
+    document.getElementById('ghOwner').value  = c.owner;
+    document.getElementById('ghRepo').value   = c.repo;
+    document.getElementById('ghBranch').value = c.branch;
+    document.getElementById('ghToken').value  = c.token;
+  }
+
+  function readPublishForm() {
+    return {
+      owner:  document.getElementById('ghOwner').value.trim(),
+      repo:   document.getElementById('ghRepo').value.trim(),
+      branch: document.getElementById('ghBranch').value.trim() || 'main',
+      token:  document.getElementById('ghToken').value.trim()
+    };
+  }
+
+  /* نقطة حمراء على زر النشر إذا فيه تعديلات ما انتشرت */
+  function refreshPublishBadge() {
+    var btn = document.getElementById('topPublishBtn');
+    var pending = Store.hasUnpublished();
+    btn.classList.toggle('has-changes', pending);
+    btn.textContent = pending ? 'نشر للزبائن ●' : 'نشر للزبائن';
+  }
+
+  document.getElementById('ghSaveCfg').addEventListener('click', function () {
+    if (Publish.saveConfig(readPublishForm())) setStatus('تم حفظ بيانات الربط في هذا الجهاز.', 'ok');
+    else setStatus('تعذّر الحفظ في هذا المتصفح.', 'err');
+  });
+
+  document.getElementById('ghTestBtn').addEventListener('click', async function () {
+    Publish.saveConfig(readPublishForm());
+    setStatus('جاري الاختبار…');
+    try { setStatus(await Publish.test(), 'ok'); }
+    catch (e) { setStatus(e.message, 'err'); }
+  });
+
+  async function runPublish(btn) {
+    Publish.saveConfig(readPublishForm());
+    btn.disabled = true;
+    try {
+      var res = await Publish.publish(function (m) { setStatus(m); });
+      setStatus('تم النشر بنجاح' + (res.images ? ' (ورفعنا ' + res.images + ' صورة)' : '') +
+        '. الموقع يتحدّث للزبائن خلال دقيقة تقريباً.', 'ok');
+      renderItems();
+      global.renderMenu();
+      document.getElementById('jsonBox').value = Store.toJSON();
+      toast('تم النشر');
+    } catch (e) {
+      setStatus(e.message, 'err');
+      toast('ما تم النشر');
+    } finally {
+      btn.disabled = false;
+      refreshPublishBadge();
+    }
+  }
+
+  document.getElementById('ghPublishBtn').addEventListener('click', function () {
+    runPublish(this);
+  });
+
+  document.getElementById('topPublishBtn').addEventListener('click', function () {
+    var btn = this;
+    /* ننقل المستخدم لتبويب النشر حتى يشوف الحالة والأخطاء */
+    document.querySelector('.atab[data-view="backup"]').click();
+    if (!Publish.isConfigured()) {
+      setStatus('عبّي بيانات الربط أول مرة، بعدها النشر بضغطة وحدة.', 'err');
+      document.getElementById('ghToken').focus();
+      return;
+    }
+    runPublish(btn);
+  });
   document.getElementById('logoutBtn').addEventListener('click', function () {
     Store.setLoggedIn(false);
     close();
