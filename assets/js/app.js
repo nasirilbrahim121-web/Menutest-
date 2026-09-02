@@ -257,7 +257,8 @@
 
   function checkHash() {
     if (location.hash === '#admin') {
-      history.replaceState(null, '', location.pathname + location.search);
+      try { history.replaceState(null, '', location.pathname + location.search); }
+      catch (e) { /* بعض المتصفحات تمنعها عند فتح الملف مباشرة */ }
       global.Admin.requestAccess();
     }
   }
