@@ -3,11 +3,11 @@
 
    القيمتان تحت عامّتان بطبيعتهما وتنشحن مع أي موقع يستخدم Supabase،
    والحماية الحقيقية تجي من سياسات الصلاحيات (RLS) داخل قاعدة البيانات:
-   الجميع يقرأ المنيو، وما يكتب إلا من سجّل دخوله.
+   الجميع يقرأ المنيو، وما يكتب إلا من سجّل دخوله في محله هو.
 
-   لا تضع هنا أبداً مفتاح service_role — ذاك سري ويتجاوز كل الصلاحيات.
+   لا تضع هنا أبداً مفتاح service_role أو أي مفتاح مكتوب جنبه secret.
    ============================================================ */
 window.MENU_CONFIG = {
-  supabaseUrl: '',   /* مثال: https://abcdefghijk.supabase.co */
-  supabaseKey: ''    /* مفتاح anon / publishable */
+  supabaseUrl: 'https://vsjzhymjoblkkfuhtyrk.supabase.co',
+  supabaseKey: 'sb_publishable_nep6K98PF05CwZMOPnzL0g_oH8Wnicx'
 };
