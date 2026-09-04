@@ -7,6 +7,14 @@
   var OFFERS_ID = '__offers__';
   var state = { activeCat: null, query: '' };
 
+  /* المحل يتحدد من الرابط: ?shop=alnakhla */
+  function shopSlug() {
+    try {
+      var p = new URLSearchParams(location.search);
+      return String(p.get('shop') || p.get('s') || '').trim().toLowerCase();
+    } catch (e) { return ''; }
+  }
+
   var el = {
     shopName:   document.getElementById('shopName'),
     tagline:    document.getElementById('shopTagline'),
@@ -167,7 +175,32 @@
     }
   }
 
+  /* لا يوجد منيو للعرض: رابط بدون محل، أو محل غير موجود */
+  function renderNotice(title, note) {
+    el.tabs.innerHTML = '';
+    el.tabs.hidden = true;
+    document.querySelector('.search-wrap').hidden = true;
+    el.empty.hidden = true;
+    el.footInfo.innerHTML = '';
+    el.list.innerHTML =
+      '<div class="notice"><h2>' + esc(title) + '</h2><p>' + esc(note) + '</p></div>';
+  }
+
   function render() {
+    if (!Store.data) {
+      el.shopName.textContent = 'المنيو';
+      el.tagline.textContent = '';
+      if (Store.status === 'not-found') {
+        renderNotice('ما لقينا هذا المحل',
+          'تأكد من الرابط، أو اطلب من المحل الرابط الصحيح.');
+      } else {
+        renderNotice('حدد المحل في الرابط',
+          'الرابط الصحيح ينتهي بـ ?shop=اسم-المحل');
+      }
+      return;
+    }
+    document.querySelector('.search-wrap').hidden = false;
+    el.tabs.hidden = false;
     applyBranding();
     renderTabs();
     renderList();
@@ -265,10 +298,19 @@
   window.addEventListener('hashchange', checkHash);
 
   /* ------------------ الإقلاع ------------------ */
-  Store.init().then(function () {
-    render();
-    global.Admin.init();
-    checkHash();
-  });
+  /* ننتظر تحميل بقية الملفات قبل الإقلاع: لو ردّت قاعدة البيانات بسرعة
+     كان ممكن يشتغل هذا الكود قبل ما تجهز لوحة التحكم فينكسر مدخل الأدمن */
+  function boot() {
+    Store.init(shopSlug()).then(function () {
+      render();
+      checkHash();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
 
 })(window);

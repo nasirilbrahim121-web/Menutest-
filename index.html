@@ -75,7 +75,7 @@
 <!-- ============ لوحة تحكم الأدمن ============ -->
 <div id="adminPanel" class="admin" hidden>
   <header class="admin-top">
-    <h2>لوحة التحكم</h2>
+    <h2>لوحة التحكم<span id="ctxShop" class="ctx-shop"></span></h2>
     <div class="admin-top-actions">
       <button class="btn ghost" id="previewBtn" type="button">معاينة المنيو</button>
       <button class="btn ghost danger" id="logoutBtn" type="button">خروج</button>
@@ -83,6 +83,7 @@
   </header>
 
   <nav class="admin-tabs">
+    <button class="atab" data-view="shops" type="button" hidden>المحلات</button>
     <button class="atab is-active" data-view="items" type="button">الأصناف</button>
     <button class="atab" data-view="cats" type="button">الأقسام</button>
     <button class="atab" data-view="info" type="button">معلومات المحل</button>
@@ -91,11 +92,21 @@
 
   <div class="admin-body">
 
+    <section class="aview" data-view="shops" hidden>
+      <div class="row-between">
+        <h3>المحلات</h3>
+        <button class="btn primary" id="addShopBtn" type="button">+ إضافة محل</button>
+      </div>
+      <p id="shopsMsg" class="pub-status" hidden></p>
+      <div id="shopsList" class="admin-list"></div>
+    </section>
+
     <section class="aview" data-view="items">
       <div class="row-between">
         <h3>الأصناف</h3>
         <button class="btn primary" id="addItemBtn" type="button">+ إضافة صنف</button>
       </div>
+      <p id="noShopHint" class="pub-status is-err" hidden>ما فيه محل محدد. افتح تبويب «المحلات» واختر محلاً لتعديله.</p>
       <select id="filterCat" class="input" aria-label="تصفية حسب القسم"></select>
       <div id="adminItems" class="admin-list"></div>
     </section>

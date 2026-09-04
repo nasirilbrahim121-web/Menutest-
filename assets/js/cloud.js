@@ -1,9 +1,9 @@
 /* ============================================================
-   cloud.js — التعامل مع قاعدة البيانات والتخزين وتسجيل الدخول
+   cloud.js — قاعدة البيانات وتسجيل الدخول ورفع الصور
 
-   المنيو كله محفوظ كسجل واحد في جدول menu، والصور في مخزن الملفات.
-   لو ما كان الموقع مربوطاً بعد، كل الدوال ترجع بهدوء والموقع يكمل
-   شغله من ملف data/menu.json.
+   منصة واحدة تخدم كل المحلات: كل محل صف في جدول shops، ومنيوه
+   كامل داخل عمود data. صاحب المحل يعدّل محله فقط، ومدير المنصة
+   يقدر يضيف محلات ويعدّل أي محل.
    ============================================================ */
 (function (global) {
   'use strict';
@@ -16,21 +16,16 @@
     return !!(CFG.supabaseUrl && CFG.supabaseKey);
   }
 
-  /* المكتبة تُحمَّل من CDN؛ لو تعذّر تحميلها نكمل بدون سحابة */
-  function libraryReady() {
-    return !!(global.supabase && global.supabase.createClient);
-  }
-
   function get() {
     if (client) return client;
-    if (!isConfigured() || !libraryReady()) return null;
+    if (!isConfigured()) return null;
+    if (!global.supabase || !global.supabase.createClient) return null;
     client = global.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, {
       auth: { persistSession: true, autoRefreshToken: true }
     });
     return client;
   }
 
-  /* يرجّع العميل أو يرمي رسالة تشرح السبب الحقيقي */
   function requireClient() {
     if (!isConfigured()) throw new Error('الموقع غير مربوط بقاعدة البيانات بعد.');
     var c = get();
@@ -43,12 +38,16 @@
     var msg = (err && (err.message || err.error_description)) || '';
     var code = err && err.code;
     if (/Invalid login credentials/i.test(msg)) return new Error('الإيميل أو كلمة المرور غير صحيحة.');
-    if (/Email not confirmed/i.test(msg)) return new Error('الإيميل غير مؤكد. أكّده من الرسالة اللي وصلتك، أو فعّله من لوحة Supabase.');
+    if (/Email not confirmed/i.test(msg)) return new Error('الإيميل غير مؤكد. فعّل Auto Confirm للحساب من لوحة Supabase.');
+    if (/duplicate key/i.test(msg) || code === '23505') return new Error('فيه محل مسجّل بنفس الرابط. اختر رابطاً غيره.');
+    if (/violates check constraint/i.test(msg) || code === '23514') {
+      return new Error('رابط المحل لازم يكون حروفاً إنجليزية صغيرة وأرقاماً وشرطات فقط.');
+    }
     if (/row-level security/i.test(msg) || code === '42501') {
-      return new Error('ما عندك صلاحية الحفظ. تأكد إنك مسجّل دخول، وإن سياسات الصلاحيات مضافة.');
+      return new Error('ما عندك صلاحية على هذا المحل. تأكد إنك داخل بالحساب الصحيح.');
     }
     if (/relation .* does not exist/i.test(msg) || code === '42P01') {
-      return new Error('جدول المنيو غير موجود في قاعدة البيانات. شغّل ملف supabase-setup.sql أولاً.');
+      return new Error('جداول المنصة غير موجودة. شغّل ملف supabase-setup.sql أولاً.');
     }
     if (/Bucket not found/i.test(msg)) return new Error('مخزن الصور غير موجود. شغّل ملف supabase-setup.sql أولاً.');
     if (/fetch|network|Failed to fetch/i.test(msg)) return new Error('ما فيه اتصال بقاعدة البيانات. تأكد من الإنترنت.');
@@ -56,23 +55,79 @@
     return new Error(msg || 'صار خطأ غير متوقع في الاتصال بقاعدة البيانات.');
   }
 
-  /* ------------------ المنيو ------------------ */
-  async function loadMenu() {
+  /* ------------------ المحلات ------------------ */
+
+  /* منيو محل واحد للعرض للزبون */
+  async function loadShop(slug) {
     if (!isConfigured()) return null;
-    /* لو المكتبة ما تحمّلت نرمي خطأ اتصال، لا نرجّع "فاضي" —
-       عشان ما نوهم صاحب المحل إن منيوه ضاع */
     var c = requireClient();
-    var res = await c.from('menu').select('data').eq('id', 1).maybeSingle();
+    var res = await c.from('shops')
+      .select('slug,name,data,active')
+      .eq('slug', slug)
+      .maybeSingle();
     if (res.error) throw describe(res.error);
-    return res.data ? res.data.data : null;
+    return res.data || null;
   }
 
-  async function saveMenu(data) {
+  async function saveShop(slug, data) {
     var c = requireClient();
-    var res = await c.from('menu')
-      .upsert({ id: 1, data: data, updated_at: new Date().toISOString() })
-      .select('id');
+    var res = await c.from('shops')
+      .update({ data: data })
+      .eq('slug', slug)
+      .select('slug');
     if (res.error) throw describe(res.error);
+    if (!res.data || !res.data.length) {
+      throw new Error('ما تم الحفظ — ما عندك صلاحية على هذا المحل، أو انتهت جلستك. سجّل دخول مرة ثانية.');
+    }
+    return true;
+  }
+
+  /* كل المحلات — لمدير المنصة */
+  async function listShops() {
+    var c = requireClient();
+    var res = await c.from('shops')
+      .select('slug,name,owner_email,active,updated_at')
+      .order('created_at', { ascending: true });
+    if (res.error) throw describe(res.error);
+    return res.data || [];
+  }
+
+  /* محلات صاحب المحل نفسه */
+  async function myShops(email) {
+    var c = requireClient();
+    var res = await c.from('shops')
+      .select('slug,name,active')
+      .ilike('owner_email', email || '')
+      .order('created_at', { ascending: true });
+    if (res.error) throw describe(res.error);
+    return res.data || [];
+  }
+
+  async function createShop(shop) {
+    var c = requireClient();
+    var res = await c.from('shops').insert({
+      slug: shop.slug,
+      name: shop.name,
+      owner_email: shop.ownerEmail || null,
+      data: shop.data
+    }).select('slug');
+    if (res.error) throw describe(res.error);
+    return res.data[0];
+  }
+
+  async function updateShopMeta(slug, patch) {
+    var c = requireClient();
+    var res = await c.from('shops').update(patch).eq('slug', slug).select('slug');
+    if (res.error) throw describe(res.error);
+    if (!res.data || !res.data.length) throw new Error('ما تم التعديل — هذي العملية لمدير المنصة فقط.');
+    return true;
+  }
+
+  async function deleteShop(slug) {
+    var c = requireClient();
+    var res = await c.from('shops').delete().eq('slug', slug).select('slug');
+    if (res.error) throw describe(res.error);
+    if (!res.data || !res.data.length) throw new Error('ما تم الحذف — هذي العملية لمدير المنصة فقط.');
     return true;
   }
 
@@ -98,6 +153,16 @@
     } catch (e) { return null; }
   }
 
+  /* هل المستخدم الحالي مدير منصة؟ سياسات القراءة ترجّع صفه فقط */
+  async function isPlatformAdmin() {
+    var c = get();
+    if (!c) return false;
+    try {
+      var res = await c.from('platform_admins').select('user_id').limit(1);
+      return !res.error && !!(res.data && res.data.length);
+    } catch (e) { return false; }
+  }
+
   async function changePassword(newPassword) {
     var c = requireClient();
     var res = await c.auth.updateUser({ password: newPassword });
@@ -106,26 +171,30 @@
   }
 
   /* ------------------ الصور ------------------ */
-  async function uploadImage(blob, hint) {
+  async function uploadImage(slug, blob, hint) {
     var c = requireClient();
     var name = (hint || 'img').replace(/[^a-zA-Z0-9_-]/g, '') || 'img';
-    var path = 'items/' + name + '-' + Date.now().toString(36) + '.jpg';
+    var path = 'shops/' + slug + '/' + name + '-' + Date.now().toString(36) + '.jpg';
     var up = await c.storage.from(BUCKET).upload(path, blob, {
       contentType: 'image/jpeg', upsert: false, cacheControl: '3600'
     });
     if (up.error) throw describe(up.error);
-    var pub = c.storage.from(BUCKET).getPublicUrl(path);
-    return pub.data.publicUrl;
+    return c.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
   }
 
   global.Cloud = {
     isConfigured: isConfigured,
-    libraryReady: libraryReady,
-    loadMenu: loadMenu,
-    saveMenu: saveMenu,
+    loadShop: loadShop,
+    saveShop: saveShop,
+    listShops: listShops,
+    myShops: myShops,
+    createShop: createShop,
+    updateShopMeta: updateShopMeta,
+    deleteShop: deleteShop,
     signIn: signIn,
     signOut: signOut,
     currentUser: currentUser,
+    isPlatformAdmin: isPlatformAdmin,
     changePassword: changePassword,
     uploadImage: uploadImage
   };

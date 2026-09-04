@@ -104,6 +104,9 @@ h1,h2,h3{margin:0}
 .tag-off{background:var(--accent);color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:600}
 .out-badge{background:#e0e0e0;color:#666;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:600}
 .empty{text-align:center;color:var(--muted);padding:40px 20px}
+.notice{text-align:center;padding:60px 24px;color:var(--muted)}
+.notice h2{font-size:19px;color:var(--text);margin-bottom:8px}
+.notice p{margin:0;font-size:14px;line-height:1.9}
 
 /* ================= التذييل ================= */
 .foot{padding:24px 18px 90px;text-align:center;color:var(--muted);font-size:13px}
@@ -168,6 +171,8 @@ h1,h2,h3{margin:0}
   padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap
 }
 .admin-top h2{font-size:17px}
+.ctx-shop{display:block;font-size:12px;font-weight:500;opacity:.75;margin-top:2px}
+.shop-link{direction:ltr;text-align:left;font-size:12px;color:#666;word-break:break-all}
 .admin-top .btn{margin-top:0;background:rgba(255,255,255,.16);color:#fff}
 .admin-top .btn.danger{color:#ffd7d7}
 .admin-top .btn.publish{background:#fff;color:var(--accent)}

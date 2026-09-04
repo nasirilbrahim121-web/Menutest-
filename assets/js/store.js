@@ -1,17 +1,14 @@
 /* ============================================================
-   store.js — تحميل وحفظ بيانات المنيو
-   ترتيب مصادر البيانات:
-   1) قاعدة البيانات (المصدر الرسمي متى ما كان الموقع مربوطاً)
-   2) نسخة محلية محفوظة في المتصفح — تُستخدم لو انقطع الاتصال
-   3) ملف data/menu.json المرفوع مع الموقع
-   4) البيانات الافتراضية المدمجة بالأسفل
+   store.js — تحميل وحفظ منيو المحل الحالي
+
+   المحل يتحدد من الرابط (?shop=slug). المنيو يجي من قاعدة البيانات،
+   ولو انقطع الاتصال نعرض آخر نسخة محفوظة في هذا المتصفح.
    ============================================================ */
 (function (global) {
   'use strict';
 
-  /* نسخة محلية من آخر منيو نجح تحميله أو حفظه — تُستخدم لو انقطع الاتصال */
-  var CACHE_KEY  = 'menuApp.cache.v2';
-  var LEGACY_KEY = 'menuApp.data.v1';
+  /* نسخة محلية لكل محل من آخر منيو نجح تحميله — تُستخدم لو انقطع الاتصال */
+  var CACHE_PREFIX = 'menuApp.cache.';
 
   var DEFAULT_DATA = {
     settings: {
@@ -120,48 +117,78 @@
     catch (e) { return false; }
   }
 
+  function readLocal(key) {
+    try {
+      var raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  function writeLocal(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+    catch (e) { return false; }
+  }
+
   var Store = {
     data: null,
-    /* من وين جت البيانات المعروضة: cloud | cloud-empty | offline | local | file */
-    source: 'file',
-    cloudError: null,
+    shop: null,          /* { slug, name } */
+    /* ok | no-shop | not-found | offline | demo */
+    status: 'no-shop',
+    error: null,
 
-    /* ملف data/menu.json إن وُجد، وإلا البيانات المدمجة */
-    async fromFile() {
+    /* المنيو المبدئي لأي محل جديد */
+    async templateMenu() {
       try {
         var res = await fetch('data/menu.json', { cache: 'no-store' });
-        if (res.ok) return await res.json();
-      } catch (e) { /* فتح الملف مباشرة من الجهاز أو الملف غير موجود */ }
+        if (res.ok) return normalize(await res.json());
+      } catch (e) { /* الملف غير موجود أو الصفحة مفتوحة من الجهاز */ }
       return clone(DEFAULT_DATA);
     },
 
-    async init() {
-      this.cloudError = null;
-      var fallback = await this.fromFile();
+    cacheKey() { return CACHE_PREFIX + (this.shop ? this.shop.slug : 'demo'); },
 
+    async init(slug) {
+      this.error = null;
+
+      /* بدون ربط بقاعدة البيانات نعرض منيو تجريبياً حتى يشتغل الموقع */
       if (!Cloud.isConfigured()) {
-        var local = readLocal(CACHE_KEY) || readLocal(LEGACY_KEY);
-        this.data = normalize(local || fallback);
-        this.source = local ? 'local' : 'file';
+        this.shop = { slug: slug || 'demo', name: '' };
+        this.data = await this.templateMenu();
+        this.status = 'demo';
         return this.data;
       }
 
+      if (!slug) {
+        this.shop = null;
+        this.data = null;
+        this.status = 'no-shop';
+        return null;
+      }
+
+      this.shop = { slug: slug, name: '' };
+
       try {
-        var remote = await Cloud.loadMenu();
-        if (remote) {
-          this.data = normalize(remote);
-          this.source = 'cloud';
-          writeLocal(CACHE_KEY, this.data);
-          return this.data;
+        var row = await Cloud.loadShop(slug);
+        if (!row) {
+          this.data = null;
+          this.status = 'not-found';
+          return null;
         }
-        /* قاعدة البيانات فاضية — نعرض الملف، وأول حفظ ينقله لها */
-        this.data = normalize(fallback);
-        this.source = 'cloud-empty';
+        this.shop = { slug: row.slug, name: row.name };
+        this.data = normalize(row.data);
+        this.status = 'ok';
+        writeLocal(this.cacheKey(), { name: row.name, data: this.data });
         return this.data;
       } catch (e) {
-        this.cloudError = e.message;
-        this.data = normalize(readLocal(CACHE_KEY) || fallback);
-        this.source = 'offline';
+        this.error = e.message;
+        var cached = readLocal(this.cacheKey());
+        if (cached) {
+          this.shop = { slug: slug, name: cached.name || '' };
+          this.data = normalize(cached.data);
+        } else {
+          this.data = await this.templateMenu();
+        }
+        this.status = 'offline';
         return this.data;
       }
     },
@@ -169,16 +196,14 @@
     /* يحفظ في قاعدة البيانات. يرمي خطأ واضح إذا فشل، فلا نخزّن نسخة
        محلية توهم صاحب المحل إن التعديل انحفظ. */
     async save() {
-      if (!Cloud.isConfigured()) {
-        if (!writeLocal(CACHE_KEY, this.data)) {
-          throw new Error('تعذّر الحفظ — مساحة المتصفح ممتلئة.');
-        }
-        this.source = 'local';
+      if (this.status === 'demo') {
+        writeLocal(this.cacheKey(), { name: '', data: this.data });
         return true;
       }
-      await Cloud.saveMenu(this.data);
-      writeLocal(CACHE_KEY, this.data);
-      this.source = 'cloud';
+      if (!this.shop) throw new Error('ما فيه محل محدد.');
+      await Cloud.saveShop(this.shop.slug, this.data);
+      writeLocal(this.cacheKey(), { name: this.shop.name, data: this.data });
+      this.status = 'ok';
       return true;
     },
 
@@ -212,6 +237,7 @@
     },
 
     uid: uid,
+    normalize: normalize,
     DEFAULT_DATA: DEFAULT_DATA
   };
 

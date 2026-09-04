@@ -19,6 +19,7 @@
   var cloudBox   = document.getElementById('cloudStatus');
 
   var editing = null;   /* {type:'item'|'cat', id:string|null} */
+  var ctx = { user: null, isAdmin: false };
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -73,7 +74,7 @@
       return;
     }
     var user = await Cloud.currentUser();
-    if (user) return open();
+    if (user) return enterPanel();
     loginError.hidden = true;
     loginPass.value = '';
     loginModal.hidden = false;
@@ -89,10 +90,7 @@
       await Cloud.signIn(loginEmail.value.trim(), loginPass.value);
       loginModal.hidden = true;
       loginPass.value = '';
-      /* بعد الدخول نعيد التحميل من قاعدة البيانات حتى نشتغل على أحدث نسخة */
-      await Store.init();
-      global.renderMenu();
-      open();
+      await enterPanel();
     } catch (err) {
       loginError.textContent = err.message;
       loginError.hidden = false;
@@ -101,14 +99,148 @@
     }
   });
 
+  /* يحدد صلاحية المستخدم ويجهّز المحل اللي بيعدّله */
+  async function enterPanel() {
+    ctx.user = await Cloud.currentUser();
+    ctx.isAdmin = await Cloud.isPlatformAdmin();
+    document.querySelector('.atab[data-view="shops"]').hidden = !ctx.isAdmin;
+
+    /* لو الرابط ما فيه محل، نفتح محل صاحبه تلقائياً إذا عنده واحد فقط */
+    if (!Store.data) {
+      try {
+        var mine = ctx.isAdmin
+          ? await Cloud.listShops()
+          : await Cloud.myShops((ctx.user && ctx.user.email) || '');
+        if (mine.length === 1) await switchShop(mine[0].slug, true);
+      } catch (e) { /* نكمل ونعرض التبويب بحالته */ }
+    }
+    open();
+    renderShops();
+  }
+
+  async function switchShop(slug, quiet) {
+    await Store.init(slug);
+    try { history.replaceState(null, '', '?shop=' + encodeURIComponent(slug)); }
+    catch (e) { /* بعض المتصفحات تمنعها */ }
+    global.renderMenu();
+    if (!panel.hidden) {
+      fillSettingsForm();
+      renderItems();
+      renderCats();
+      updateContext();
+      document.getElementById('jsonBox').value = Store.data ? Store.toJSON() : '';
+    }
+    if (!quiet) toast('تم فتح ' + slug);
+  }
+
+  function updateContext() {
+    var box = document.getElementById('ctxShop');
+    box.textContent = Store.shop && Store.data
+      ? (Store.data.settings.shopName || Store.shop.slug) + ' · ' + Store.shop.slug
+      : 'ما فيه محل محدد';
+    document.getElementById('noShopHint').hidden = !!Store.data;
+    document.getElementById('addItemBtn').disabled = !Store.data;
+    document.getElementById('addCatBtn').disabled = !Store.data;
+  }
+
+  /* ---------- تبويب المحلات ---------- */
+  async function renderShops() {
+    var box = document.getElementById('shopsList');
+    var msg = document.getElementById('shopsMsg');
+    if (!box) return;
+    msg.hidden = true;
+    box.innerHTML = '<p class="muted">جاري التحميل…</p>';
+    try {
+      var rows = ctx.isAdmin
+        ? await Cloud.listShops()
+        : await Cloud.myShops((ctx.user && ctx.user.email) || '');
+      if (!rows.length) {
+        box.innerHTML = '<p class="muted">ما فيه محلات بعد.</p>';
+        return;
+      }
+      var base = location.origin + location.pathname;
+      box.innerHTML = rows.map(function (r) {
+        var url = base + '?shop=' + encodeURIComponent(r.slug);
+        return '<div class="arow" data-slug="' + esc(r.slug) + '">' +
+          '<div class="arow-main">' +
+            '<b>' + esc(r.name) + (r.active === false ? ' — <span style="color:#c62828">موقوف</span>' : '') + '</b>' +
+            '<small>' + esc(r.owner_email || 'بدون مالك') + '</small>' +
+            '<small class="shop-link">' + esc(url) + '</small>' +
+          '</div>' +
+          '<div class="arow-actions">' +
+            '<button class="btn ghost tiny" type="button" data-shop-act="edit">تعديل المنيو</button>' +
+            '<button class="btn ghost tiny" type="button" data-shop-act="copy">نسخ الرابط</button>' +
+            (ctx.isAdmin ? '<button class="btn ghost tiny" type="button" data-shop-act="toggle">' +
+              (r.active === false ? 'تفعيل' : 'إيقاف') + '</button>' +
+              '<button class="btn ghost tiny danger" type="button" data-shop-act="del">حذف</button>' : '') +
+          '</div></div>';
+      }).join('');
+    } catch (e) {
+      box.innerHTML = '';
+      msg.textContent = e.message;
+      msg.className = 'pub-status is-err';
+      msg.hidden = false;
+    }
+  }
+
+  document.getElementById('shopsList').addEventListener('click', async function (e) {
+    var btn = e.target.closest('[data-shop-act]');
+    if (!btn) return;
+    var slug = btn.closest('.arow').dataset.slug;
+    var act = btn.dataset.shopAct;
+    var base = location.origin + location.pathname + '?shop=' + encodeURIComponent(slug);
+
+    if (act === 'edit') {
+      await switchShop(slug);
+      document.querySelector('.atab[data-view="items"]').click();
+      return;
+    }
+    if (act === 'copy') {
+      try { await navigator.clipboard.writeText(base); toast('تم نسخ الرابط'); }
+      catch (err) { prompt('انسخ الرابط:', base); }
+      return;
+    }
+    if (act === 'toggle') {
+      var turningOff = btn.textContent.trim() === 'إيقاف';
+      try {
+        await Cloud.updateShopMeta(slug, { active: !turningOff });
+        toast(turningOff ? 'تم إيقاف المحل' : 'تم تفعيل المحل');
+        renderShops();
+      } catch (err) { toast(err.message); }
+      return;
+    }
+    if (act === 'del') {
+      if (!confirm('حذف المحل «' + slug + '» ومنيوه نهائياً؟ ما فيه تراجع.')) return;
+      try {
+        await Cloud.deleteShop(slug);
+        toast('تم حذف المحل');
+        if (Store.shop && Store.shop.slug === slug) { Store.data = null; Store.shop = null; updateContext(); }
+        renderShops();
+      } catch (err) { toast(err.message); }
+    }
+  });
+
+  document.getElementById('addShopBtn').addEventListener('click', function () {
+    editing = { type: 'shop', id: null };
+    editTitle.textContent = 'إضافة محل';
+    editFields.innerHTML =
+      '<label class="field"><span>اسم المحل *</span><input class="input" name="name" required placeholder="قهوة النخلة"></label>' +
+      '<label class="field"><span>رابط المحل *</span><input class="input ltr" name="slug" required placeholder="alnakhla" pattern="[a-z0-9][a-z0-9-]{1,39}"></label>' +
+      '<p class="muted small">حروف إنجليزية صغيرة وأرقام وشرطات فقط. يصير رابط المنيو: <code>?shop=alnakhla</code></p>' +
+      '<label class="field"><span>إيميل صاحب المحل</span><input class="input ltr" name="ownerEmail" type="email" placeholder="owner@example.com"></label>' +
+      '<p class="muted small">أنشئ له حساباً بنفس الإيميل من Supabase ← Authentication ← Users، وبعدها يدخل ويعدّل منيوه هو فقط.</p>';
+    editModal.hidden = false;
+  });
+
   function open() {
     panel.hidden = false;
     document.body.style.overflow = 'hidden';
+    updateContext();
     fillSettingsForm();
     showCloudStatus();
     renderItems();
     renderCats();
-    document.getElementById('jsonBox').value = Store.toJSON();
+    document.getElementById('jsonBox').value = Store.data ? Store.toJSON() : '';
   }
 
   function close() {
@@ -120,14 +252,14 @@
   function showCloudStatus(errorMsg) {
     if (!cloudBox) return;
     var map = {
-      cloud: ['متصل بقاعدة البيانات — أي تعديل يظهر للزبائن فوراً.', 'ok'],
-      'cloud-empty': ['قاعدة البيانات فاضية — أول حفظ راح ينقل المنيو الحالي لها.', ''],
+      ok: ['متصل — أي تعديل تحفظه يشوفه الزبائن فوراً.', 'ok'],
       offline: ['ما وصلنا لقاعدة البيانات، وتعرض نسخة محفوظة. لا تعدّل قبل ما يرجع الاتصال.', 'err'],
-      local: ['الموقع غير مربوط بقاعدة البيانات — التعديلات محفوظة في هذا الجهاز فقط.', 'err'],
-      file: ['يعرض المنيو من ملف الموقع.', '']
+      demo: ['الموقع غير مربوط بقاعدة البيانات — منيو تجريبي محفوظ في هذا الجهاز فقط.', 'err'],
+      'no-shop': ['ما فيه محل محدد في الرابط.', 'err'],
+      'not-found': ['المحل المذكور في الرابط غير موجود.', 'err']
     };
-    var row = map[Store.source] || map.file;
-    var msg = errorMsg || (Store.cloudError ? row[0] + ' (' + Store.cloudError + ')' : row[0]);
+    var row = map[Store.status] || map['no-shop'];
+    var msg = errorMsg || (Store.error ? row[0] + ' (' + Store.error + ')' : row[0]);
     cloudBox.textContent = msg;
     cloudBox.className = 'pub-status' + (errorMsg ? ' is-err' : (row[1] ? ' is-' + row[1] : ''));
     cloudBox.hidden = false;
@@ -170,6 +302,7 @@
   }
 
   function renderItems() {
+    if (!Store.data) { document.getElementById('adminItems').innerHTML = ''; return; }
     fillFilter();
     var box = document.getElementById('adminItems');
     var chosen = filterCat.value;
@@ -284,7 +417,7 @@
       msg.textContent = 'جاري رفع الصورة…';
       try {
         var blob = await fileToBlob(f, 800);
-        var url = await Cloud.uploadImage(blob, 'item');
+        var url = await Cloud.uploadImage(Store.shop.slug, blob, 'item');
         document.getElementById('imgPath').value = url;
         document.getElementById('imgPrev').innerHTML = '<img src="' + esc(url) + '" alt="">';
         msg.textContent = 'تم رفع الصورة. اضغط «حفظ» عشان تنحفظ مع الصنف.';
@@ -301,6 +434,7 @@
      ============================================================ */
   function renderCats() {
     var box = document.getElementById('adminCats');
+    if (!Store.data) { box.innerHTML = ''; return; }
     var cats = Store.categories();
     if (!cats.length) { box.innerHTML = '<p class="muted">لا توجد أقسام بعد.</p>'; return; }
     box.innerHTML = cats.map(function (c, idx) {
@@ -369,6 +503,27 @@
     btn.disabled = true;
 
     try {
+      if (editing.type === 'shop') {
+        try {
+          var slug = String(f.get('slug') || '').trim().toLowerCase();
+          var shopName = String(f.get('name') || '').trim();
+          /* المحل الجديد يبدأ بمنيو القالب لكن باسمه هو */
+          var starter = await Store.templateMenu();
+          starter.settings.shopName = shopName;
+          starter.settings.tagline = '';
+          await Cloud.createShop({
+            slug: slug,
+            name: shopName,
+            ownerEmail: String(f.get('ownerEmail') || '').trim() || null,
+            data: starter
+          });
+          editModal.hidden = true;
+          toast('تم إنشاء المحل');
+          await renderShops();
+        } catch (err) { toast(err.message); }
+        return;
+      }
+
       if (editing.type === 'cat') {
         var name = String(f.get('name') || '').trim();
         if (!name) return;
@@ -421,6 +576,7 @@
   };
 
   function fillSettingsForm() {
+    if (!Store.data) return;
     var s = Store.data.settings, c = s.contact || {};
     document.getElementById(S.shopName).value  = s.shopName || '';
     document.getElementById(S.tagline).value   = s.tagline || '';
@@ -446,7 +602,7 @@
     var prev = Store.data.settings.logo;
     try {
       var blob = await fileToBlob(f, 256);
-      var url = await Cloud.uploadImage(blob, 'logo');
+      var url = await Cloud.uploadImage(Store.shop.slug, blob, 'logo');
       Store.data.settings.logo = url;
       document.getElementById('logoPreview').innerHTML = '<img src="' + esc(url) + '" alt="">';
       if (await persist()) toast('تم تحديث الشعار');
